@@ -36,14 +36,12 @@ class sol:
         sigma_Sm = None  # DC electrical conductivity in S/m
 
 
-
-
 def PlotZ(cals, figSize, outFigName, xtn):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
     ax.set_xlabel(r'$\mathrm{Re}\{Z\}$ ($\Omega$)')
-    ax.set_ylabel(r'$\mathrm{Im}\{Z\}$ ($\Omega$)')
+    ax.set_ylabel(r'$-\mathrm{Im}\{Z\}$ ($\Omega$)')
     ax.set_title(r'Calibration solution Gamry sweeps --- impedance')
     ax.set_xscale('log')
     ax.set_yscale('log')
@@ -64,7 +62,7 @@ def PlotY(cals, figSize, outFigName, xtn):
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
     ax.set_xlabel(r'$\mathrm{Re}\{Y\}$ ($\mho$)')
-    ax.set_ylabel(r'$\mathrm{Im}\{Y\}$ ($\mho$)')
+    ax.set_ylabel(r'$-\mathrm{Im}\{Y\}$ ($\mho$)')
     ax.set_title(r'Calibration solution Gamry sweeps --- conductance')
     ax.set_xscale('log')
     ax.set_yscale('log')
