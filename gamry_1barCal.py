@@ -6,7 +6,7 @@ from datetime import datetime as dtime
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-plt.rcParams['text.usetex'] = True
+# plt.rcParams['text.usetex'] = True
 plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}'
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'STIXGeneral'
@@ -17,7 +17,7 @@ PLOT_AIR = True
 
 gamryDTstr = r'%m/%d/%Y-%I:%M %p'
 
-class sol:
+class Solution: 
     def __init__(self):
         comp = None  # Solute composition
         w_ppt = None  # Solute mass concentration in g/kg
@@ -37,7 +37,18 @@ class sol:
         sigma_Sm = None  # DC electrical conductivity in S/m
 
 
-def PlotZ(cals, figSize, outFigName, xtn, add=None):
+def AddTicks(Rticks, lineList, ax):
+
+    defaultTicks = plt.xticks()[0]
+    nDefaultTicks = np.size(defaultTicks)
+    allTicks = np.concatenate((defaultTicks, Rticks))
+    plt.xticks(allTicks)
+    Colors = [line.get_color() for line in lineList]
+    [t.set_color(color) for t, color in zip(ax.xaxis.get_ticklabels()[nDefaultTicks:], Colors)]
+    [t.set_color(color) for t, color in zip(ax.xaxis.get_ticklines()[nDefaultTicks:], Colors)]
+
+
+def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
@@ -52,8 +63,10 @@ def PlotZ(cals, figSize, outFigName, xtn, add=None):
             legLabel = 'Air'
         else:
             legLabel = f'{thisCal.sigmaStd_Sm:.4f}'
-        ax.plot(np.real(thisCal.Z_ohm), np.imag(thisCal.Z_ohm), label=legLabel)
 
+    lineList = [ax.plot(np.real(thisCal.Z_ohm), np.imag(thisCal.Z_ohm), label=legLabel)[0] for thisCal in cals]
+
+    AddTicks(Rticks, lineList, ax)
     ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
     if add is None:
@@ -140,7 +153,7 @@ nSweeps = np.size(gamryFiles)
 cals = np.empty(nSweeps, dtype=object)
 
 for i, file in enumerate(gamryFiles):
-    cals[i] = sol()
+    cals[i] = Solution()
     with open(file) as f:
         f.readline()  # Skip intro line
         cals[i].time = dtime.strptime(f.readline()[:-1], gamryDTstr)  # Measurement time
@@ -170,9 +183,18 @@ for i, file in enumerate(gamryFiles):
 iSort = np.argsort(np.array([cal.sigmaStd_Sm for cal in cals]))
 cals = cals[iSort]
 
-PlotZ(cals, figSize, outFigName, xtn)
-PlotY(cals, figSize, outFigName, xtn)
-PlotZvsf(cals, figSize, outFigName, xtn)
+sigmaStdBottle_Sm = np.array([0.002179, 0.0081, 0.0423, 0.1926, 0.26, 1.401733, 7.661103]) # using fits based on actual T soln was measured at
+# ('sigma_standards_T_table.xlsx')
+sigmaStdlist_Sm = np.array([sol.sigmaStd_Sm for sol in cals])  # value on each bottle at 25 deg C, not using fits for temp dependence
+iMaxSigma = np.where([sol.sigmaStd_Sm == np.max(sigmaStdlist_Sm[np.isfinite(sigmaStdlist_Sm)]) for sol in cals])[0][0]
+
+Kcell_pm = np.real(cals[iMaxSigma].Z_ohm[-1]) * np.max(sigmaStdBottle_Sm)
+
+Rtick_ohm = Kcell_pm / sigmaStdBottle_Sm
+
+PlotZ(cals, figSize, outFigName, xtn, Rtick_ohm)
+PlotY(cals, figSize, outFigName, xtn, 1 / Rtick_ohm)
+PlotZvsf(cals, figSize, outFigName, xtn, Rtick_ohm)
 
 
 # 1/Z_cell = 1/R + i*omega*C -- Pan et al. (2021): https://doi.org/10.1029/2021GL094020
