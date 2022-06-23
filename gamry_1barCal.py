@@ -6,14 +6,14 @@ from datetime import datetime as dtime
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-# plt.rcParams['text.usetex'] = True
-plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}'
+plt.rcParams['text.usetex'] = True
+plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}\sisetup{round-mode=places,scientific-notation=true,round-precision=2}'
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'STIXGeneral'
 outFigName = 'GamryCal'
 figSize = (6,6)
 xtn = 'pdf'
-PLOT_AIR = True
+PLOT_AIR = False
 
 gamryDTstr = r'%m/%d/%Y-%I:%M %p'
 
@@ -30,6 +30,7 @@ class Solution:
         time = None  # Measurement start time
         sigmaStd_Sm = None  # Known conductivity of standard solutions (as applicable)
         descrip = None  # Text description (as applicable)
+        legLabel = None  # Legend label
 
         # Outputs
         f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
@@ -37,15 +38,34 @@ class Solution:
         sigma_Sm = None  # DC electrical conductivity in S/m
 
 
-def AddTicks(Rticks, lineList, ax):
+def AddTicksX(Rticks, lineList, ax):
+        defaultTicks = ax.get_xticks()
+        defaultTickLabels = [f'$10^{{{np.log10(tick):.0f}}}$' for tick in defaultTicks]
+        RtickLabels = [f'$\\num{{{Rtick}}}$' for Rtick in Rticks]
+        nDefaultTicks = np.size(defaultTicks)
+        allTicks = np.concatenate((defaultTicks, Rticks))
+        allTickLabels = np.concatenate((defaultTickLabels, RtickLabels))
 
-    defaultTicks = plt.xticks()[0]
-    nDefaultTicks = np.size(defaultTicks)
-    allTicks = np.concatenate((defaultTicks, Rticks))
-    plt.xticks(allTicks)
-    Colors = [line.get_color() for line in lineList]
-    [t.set_color(color) for t, color in zip(ax.xaxis.get_ticklabels()[nDefaultTicks:], Colors)]
-    [t.set_color(color) for t, color in zip(ax.xaxis.get_ticklines()[nDefaultTicks:], Colors)]
+        ax.set_xticks(allTicks)
+        ax.set_xticklabels(allTickLabels)
+        lineColors = [line.get_color() for line in lineList]
+        plt.setp(ax.xaxis.get_ticklabels()[nDefaultTicks:], rotation='vertical')
+        [plt.setp(tick, color=color) for tick, color in zip(ax.xaxis.get_ticklabels()[nDefaultTicks:], lineColors[1:])]
+
+
+def AddTicksY(Rticks, lineList, ax):
+        defaultTicks = ax.get_yticks()
+        defaultTickLabels = [f'$10^{{{np.log10(tick):.0f}}}$' for tick in defaultTicks]
+        RtickLabels = [f'$\\num{{{Rtick}}}$' for Rtick in Rticks]
+        nDefaultTicks = np.size(defaultTicks)
+        allTicks = np.concatenate((defaultTicks, Rticks))
+        allTickLabels = np.concatenate((defaultTickLabels, RtickLabels))
+
+        ax.set_yticks(allTicks)
+        ax.set_yticklabels(allTickLabels)
+        lineColors = [line.get_color() for line in lineList]
+        plt.setp(ax.yaxis.get_ticklabels()[nDefaultTicks:])
+        [plt.setp(tick, color=color) for tick, color in zip(ax.yaxis.get_ticklabels()[nDefaultTicks:], lineColors[1:])]
 
 
 def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
@@ -58,15 +78,9 @@ def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    for thisCal in cals:
-        if np.isnan(thisCal.sigmaStd_Sm):
-            legLabel = 'Air'
-        else:
-            legLabel = f'{thisCal.sigmaStd_Sm:.4f}'
+    lineList = [ax.plot(np.real(thisCal.Z_ohm), np.imag(thisCal.Z_ohm), label=thisCal.legLabel)[0] for thisCal in cals]
+    AddTicksX(Rticks, lineList, ax)
 
-    lineList = [ax.plot(np.real(thisCal.Z_ohm), np.imag(thisCal.Z_ohm), label=legLabel)[0] for thisCal in cals]
-
-    AddTicks(Rticks, lineList, ax)
     ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
     if add is None:
@@ -79,7 +93,7 @@ def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
     plt.close()
 
 
-def PlotY(cals, figSize, outFigName, xtn, add=None):
+def PlotY(cals, figSize, outFigName, xtn, Rticks, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
@@ -89,12 +103,8 @@ def PlotY(cals, figSize, outFigName, xtn, add=None):
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    for thisCal in cals:
-        if np.isnan(thisCal.sigmaStd_Sm):
-            legLabel = 'Air'
-        else:
-            legLabel = f'{thisCal.sigmaStd_Sm:.4f}'
-        ax.plot(1/np.real(thisCal.Z_ohm), 1/np.imag(thisCal.Z_ohm), label=legLabel)
+    lineList = [ax.plot(1/np.real(thisCal.Z_ohm), 1/np.imag(thisCal.Z_ohm), label=thisCal.legLabel)[0] for thisCal in cals]
+    AddTicksX(Rticks, lineList, ax)
 
     ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
@@ -108,7 +118,7 @@ def PlotY(cals, figSize, outFigName, xtn, add=None):
     plt.close()
 
 
-def PlotZvsf(cals, figSize, outFigName, xtn, add=None):
+def PlotZvsf(cals, figSize, outFigName, xtn, Rticks, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
@@ -118,12 +128,8 @@ def PlotZvsf(cals, figSize, outFigName, xtn, add=None):
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    for thisCal in cals:
-        if np.isnan(thisCal.sigmaStd_Sm):
-            legLabel = 'Air'
-        else:
-            legLabel = f'{thisCal.sigmaStd_Sm:.4f}'
-        ax.plot(thisCal.f_Hz, np.abs(thisCal.Z_ohm), label=legLabel)
+    lineList = [ax.plot(thisCal.f_Hz, np.abs(thisCal.Z_ohm), label=thisCal.legLabel)[0] for thisCal in cals]
+    AddTicksY(Rticks, lineList, ax)
 
     ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
@@ -168,12 +174,15 @@ for i, file in enumerate(gamryFiles):
     if 'DIwater' in cals[i].descrip:
         cals[i].comp = 'Pure H2O'
         cals[i].sigmaStd_Sm = 0
+        cals[i].legLabel = r'$\approx0$'
     elif 'Air' in cals[i].descrip:
         cals[i].comp = 'Air'
         cals[i].sigmaStd_Sm = np.nan
+        cals[i].legLabel = 'Air'
     else:
         cals[i].comp = 'KCl'
         cals[i].sigmaStd_Sm = float(cals[i].descrip.split(':')[-1].split('uScm')[0]) / 1e4
+        cals[i].legLabel = f'{cals[i].sigmaStd_Sm:.4f}'
 
     _, cals[i].f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(file, skiprows=10, unpack=True)
     # Phase negated for convenience looking at plots in 1st quadrant
@@ -188,12 +197,12 @@ sigmaStdBottle_Sm = np.array([0.002179, 0.0081, 0.0423, 0.1926, 0.26, 1.401733, 
 sigmaStdlist_Sm = np.array([sol.sigmaStd_Sm for sol in cals])  # value on each bottle at 25 deg C, not using fits for temp dependence
 iMaxSigma = np.where([sol.sigmaStd_Sm == np.max(sigmaStdlist_Sm[np.isfinite(sigmaStdlist_Sm)]) for sol in cals])[0][0]
 
-Kcell_pm = np.real(cals[iMaxSigma].Z_ohm[-1]) * np.max(sigmaStdBottle_Sm)
+Kcell_pm = np.real(cals[iMaxSigma].Z_ohm[0]) * np.max(sigmaStdBottle_Sm)
 
 Rtick_ohm = Kcell_pm / sigmaStdBottle_Sm
 
 PlotZ(cals, figSize, outFigName, xtn, Rtick_ohm)
-PlotY(cals, figSize, outFigName, xtn, 1 / Rtick_ohm)
+PlotY(cals, figSize, outFigName, xtn, 1/Rtick_ohm)
 PlotZvsf(cals, figSize, outFigName, xtn, Rtick_ohm)
 
 
