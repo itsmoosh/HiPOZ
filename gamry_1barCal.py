@@ -6,6 +6,8 @@ from datetime import datetime as dtime
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
+date = '20220624'
+
 plt.rcParams['text.usetex'] = True
 plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}\sisetup{round-mode=places,scientific-notation=true,round-precision=2}'
 plt.rcParams['font.family'] = 'serif'
@@ -148,12 +150,8 @@ def readFloat(line):
 
 
 # Import data
-airFname = os.path.join('calData', '20220621-1457_Temp301K.txt')
 add = None
-gamryFiles = glob(os.path.join('calData', '*.txt'))
-if not PLOT_AIR and airFname in gamryFiles:
-    gamryFiles.remove(airFname)
-    add = '_noAir'
+gamryFiles = glob(os.path.join('calData', date, '*.txt'))
 
 nSweeps = np.size(gamryFiles)
 cals = np.empty(nSweeps, dtype=object)
@@ -187,6 +185,11 @@ for i, file in enumerate(gamryFiles):
     _, cals[i].f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(file, skiprows=10, unpack=True)
     # Phase negated for convenience looking at plots in 1st quadrant
     cals[i].Z_ohm = Zabs_ohm * np.exp(-1j*np.deg2rad(Phi_ohm))
+
+    if not PLOT_AIR and cals[i].comp == 'Air':
+        gamryFiles.remove(file)
+        cals.delete(cals[i])
+        add = '_noAir'
 
 # Sort list based on conductivity
 iSort = np.argsort(np.array([cal.sigmaStd_Sm for cal in cals]))
