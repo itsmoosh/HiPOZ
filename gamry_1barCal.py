@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.cm import get_cmap
 
-date = '20220624'
+date = '20220915'
 cmapName = 'viridis'
 
 plt.rcParams['text.usetex'] = True
@@ -210,7 +210,12 @@ for i, file in enumerate(gamryFiles):
         cals[i].legLabel = 'Air'
     else:
         cals[i].comp = 'KCl'
-        cals[i].sigmaStd_Sm = float(cals[i].descrip.split(':')[-1].split('uScm')[0]) / 1e4
+        if 'uScm' in cals[i].descrip:
+            cals[i].sigmaStd_Sm = float(cals[i].descrip.split(':')[-1].split('uScm')[0]) / 1e4
+        elif 'mScm' in cals[i].descrip:
+            cals[i].sigmaStd_Sm = float(cals[i].descrip.split(':')[-1].split('mScm')[0]) / 10
+        else:
+            cals[i].sigmaStd_Sm = float(cals[i].descrip.split(':')[-1].split('Sm')[0])
         cals[i].legLabel = f'{cals[i].sigmaStd_Sm:.4f}'
 
     _, cals[i].f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(file, skiprows=10, unpack=True)
@@ -247,8 +252,6 @@ PlotZ(cals, figSize, outFigName, xtn, Rtick_ohm)
 PlotY(cals, figSize, outFigName, xtn, 1/Rtick_ohm)
 PlotZvsf(cals, figSize, outFigName, xtn, Rtick_ohm)
 PlotPhasevsf(cals, figSize, outFigName, xtn)
-
-
 
 
 # 1/Z_cell = 1/R + i*omega*C -- Pan et al. (2021): https://doi.org/10.1029/2021GL094020
