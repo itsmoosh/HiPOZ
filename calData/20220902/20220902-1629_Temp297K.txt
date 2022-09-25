@@ -1,8 +1,8 @@
 IMPEDANCE MEASUREMENT 
 9/2/2022-4:29 PM
 Chamber temperature (K): 297.31
-Chamber pressure (MPa): -344.460000
-Description: 	ElectrodeTest_0.0084Sm
+Chamber pressure (MPa): 0.1
+Description: 	0.0084Sm_ElectrodeTest
 Driving voltage (V): 5.000E-2
 Start freq (Hz): 1.500E+6
 Stop freq (Hz): 1.000E+3
