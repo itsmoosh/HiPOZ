@@ -101,7 +101,8 @@ def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
         addBit = add
     outfName = f'{outFigName}Z{addBit}.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gary calibration plot saved to file: {outfName}')
+    print(f'Gamry calibration plot saved to file: {outfName}')
+    plt.show()
     plt.close()
 
 
@@ -126,7 +127,7 @@ def PlotY(cals, figSize, outFigName, xtn, Rticks, add=None):
         addBit = add
     outfName = f'{outFigName}Y{addBit}.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gary calibration plot saved to file: {outfName}')
+    print(f'Gamry calibration plot saved to file: {outfName}')
     plt.close()
 
 
@@ -151,7 +152,7 @@ def PlotZvsf(cals, figSize, outFigName, xtn, Rticks, add=None):
         addBit = add
     outfName = f'{outFigName}Zvsf{addBit}.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gary calibration plot saved to file: {outfName}')
+    print(f'Gamry calibration plot saved to file: {outfName}')
     plt.close()
 
 def PlotPhasevsf(cals, figSize, outFigName, xtn, add=None):
@@ -214,8 +215,10 @@ for i, file in enumerate(gamryFiles):
             cals[i].sigmaStd_Sm = float(cals[i].descrip.split(':')[-1].split('uScm')[0]) / 1e4
         elif 'mScm' in cals[i].descrip:
             cals[i].sigmaStd_Sm = float(cals[i].descrip.split(':')[-1].split('mScm')[0]) / 10
-        else:
+        elif 'Sm' in cals[i].descrip:
             cals[i].sigmaStd_Sm = float(cals[i].descrip.split(':')[-1].split('Sm')[0])
+        else:
+            cals[i].sigmaStd_Sm = np.nan
         cals[i].legLabel = f'{cals[i].sigmaStd_Sm:.4f}'
 
     _, cals[i].f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(file, skiprows=10, unpack=True)
