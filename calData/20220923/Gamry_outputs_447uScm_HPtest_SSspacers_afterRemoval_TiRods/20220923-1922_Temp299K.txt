@@ -1,0 +1,11 @@
+IMPEDANCE MEASUREMENT 
+9/23/2022-7:22 PM
+Chamber temperature (K): 298.71
+Chamber pressure (MPa): 0.911209
+Description: 	447uScm_HPtest_SSspacers_afterRemoval_TiRods
+Driving voltage (V): 1.000E-2
+Start freq (Hz): 1.000E+6
+Stop freq (Hz): 1.000E+1
+# freq steps: 60
+Index #	Frequency (Hz)	Impedance (ohm)	Phase (degrees)
+0	1000195.3125000000000	566987.3124999999990	-87.8035049438477
