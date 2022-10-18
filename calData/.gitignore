@@ -1,0 +1,4 @@
+~*
+*.DS_Store
+*_calibration.txt
+*_PressTemps.txt
