@@ -1,211 +1,150 @@
-import os
-
-import matplotlib.cm
+from collections.abc import Iterable
 import numpy as np
-from glob import glob
-import logging as log
+import scipy.interpolate as sci
 from datetime import datetime as dtime
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
-from matplotlib.cm import get_cmap
+from glob import glob
+import logging
+from impedance.models.circuits import CustomCircuit
 
-date = '20220915'
-cmapName = 'viridis'
-
-plt.rcParams['text.usetex'] = True
-plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}\sisetup{round-mode=places,scientific-notation=true,round-precision=2}'
-plt.rcParams['font.family'] = 'serif'
-plt.rcParams['font.serif'] = 'STIXGeneral'
-cmap = get_cmap(cmapName)
-outFigName = 'GamryCal'
-figSize = (6,6)
-xtn = 'pdf'
-PLOT_AIR = False
+# Assign logger
+log = logging.getLogger('HIPPOS')
 
 gamryDTstr = r'%m/%d/%Y-%I:%M %p'
-
-class Solution: 
-    def __init__(self):
-        comp = None  # Solute composition
-        w_ppt = None  # Solute mass concentration in g/kg
-        P_MPa = None  # Chamber pressure of measurement in MPa
-        T_K = None  # Temperature of measurement in K
-        Vdrive_V = None  # Driving voltage in V
-        fStart_Hz = None  # Start frequency in Hz
-        fStop_Hz = None  # Stop frequency in Hz
-        nfSteps = None  # Number of frequency steps
-        time = None  # Measurement start time
-        sigmaStd_Sm = None  # Known conductivity of standard solutions (as applicable)
-        descrip = None  # Text description (as applicable)
-        legLabel = None  # Legend label
-        color = None  # Color of lines
-
-        # Outputs
-        f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
-        Z_ohm = None  # Complex impedance values of Gamry sweep measurements in ohm 
-        sigma_Sm = None  # DC electrical conductivity in S/m
-
-
-def AddTicksX(Rticks, lineList, ax):
-        defaultTicks = ax.get_xticks()
-        defaultTickLabels = [f'$10^{{{np.log10(tick):.0f}}}$' for tick in defaultTicks]
-        RtickLabels = [f'$\\num{{{Rtick}}}$' for Rtick in Rticks]
-        nDefaultTicks = np.size(defaultTicks)
-        allTicks = np.concatenate((defaultTicks, Rticks))
-        allTickLabels = np.concatenate((defaultTickLabels, RtickLabels))
-
-        ax.set_xticks(allTicks)
-        ax.set_xticklabels(allTickLabels)
-        lineColors = [line.get_color() for line in lineList[::5]]
-        lineStyles = [line.set_linestyle('--') for line in lineList[::2]]
-        plt.setp(ax.xaxis.get_ticklabels()[nDefaultTicks:], rotation='vertical')
-        [plt.setp(tick, color=color) for tick, color in zip(ax.xaxis.get_ticklabels()[nDefaultTicks:], lineColors[1:])]
-
-
-
-def AddTicksY(Rticks, lineList, ax):
-        defaultTicks = ax.get_yticks()
-        defaultTickLabels = [f'$10^{{{np.log10(tick):.0f}}}$' for tick in defaultTicks]
-        RtickLabels = [f'$\\num{{{Rtick}}}$' for Rtick in Rticks]
-        nDefaultTicks = np.size(defaultTicks)
-        allTicks = np.concatenate((defaultTicks, Rticks))
-        allTickLabels = np.concatenate((defaultTickLabels, RtickLabels))
-
-        ax.set_yticks(allTicks)
-        ax.set_yticklabels(allTickLabels)
-        lineColors = [line.get_color() for line in lineList[::5]]
-        lineStyles = [line.set_linestyle('--') for line in lineList[::2]]
-        plt.setp(ax.yaxis.get_ticklabels()[nDefaultTicks:])
-        [plt.setp(tick, color=color) for tick, color in zip(ax.yaxis.get_ticklabels()[nDefaultTicks:], lineColors[1:])]
-
-
-
-def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
-    fig = plt.figure(figsize=figSize)
-    grid = GridSpec(1, 1)
-    ax = fig.add_subplot(grid[0, 0])
-    ax.set_xlabel(r'$\mathrm{Re}\{Z\}$ ($\Omega$)')
-    ax.set_ylabel(r'$-\mathrm{Im}\{Z\}$ ($\Omega$)')
-    ax.set_title(r'Calibration solution Gamry sweeps --- impedance')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
-    lineList = [ax.plot(np.real(thisCal.Z_ohm), np.imag(thisCal.Z_ohm), label=thisCal.legLabel, color=thisCal.color)[0] for thisCal in cals]
-    AddTicksX(Rticks, lineList, ax)
-
-    ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
-    plt.tight_layout()
-    if add is None:
-        addBit = ''
-    else:
-        addBit = add
-    outfName = f'{outFigName}Z{addBit}.{xtn}'
-    fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gamry calibration plot saved to file: {outfName}')
-    plt.show()
-    plt.close()
-
-
-def PlotY(cals, figSize, outFigName, xtn, Rticks, add=None):
-    fig = plt.figure(figsize=figSize)
-    grid = GridSpec(1, 1)
-    ax = fig.add_subplot(grid[0, 0])
-    ax.set_xlabel(r'$\mathrm{Re}\{Y\}$ ($\mho$)')
-    ax.set_ylabel(r'$-\mathrm{Im}\{Y\}$ ($\mho$)')
-    ax.set_title(r'Calibration solution Gamry sweeps --- conductance')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
-    lineList = [ax.plot(1/np.real(thisCal.Z_ohm), 1/np.imag(thisCal.Z_ohm), label=thisCal.legLabel, color=thisCal.color)[0] for thisCal in cals]
-    AddTicksX(Rticks, lineList, ax)
-
-    ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
-    plt.tight_layout()
-    if add is None:
-        addBit = ''
-    else:
-        addBit = add
-    outfName = f'{outFigName}Y{addBit}.{xtn}'
-    fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gamry calibration plot saved to file: {outfName}')
-    plt.close()
-
-
-def PlotZvsf(cals, figSize, outFigName, xtn, Rticks, add=None):
-    fig = plt.figure(figsize=figSize)
-    grid = GridSpec(1, 1)
-    ax = fig.add_subplot(grid[0, 0])
-    ax.set_xlabel(r'Frequency $f$ ($\si{Hz}$)')
-    ax.set_ylabel(r'Impedance $|Z|$ ($\Omega$)')
-    ax.set_title(r'Calibration solution Gamry sweeps --- impedance spectrum')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
-    lineList = [ax.plot(thisCal.f_Hz, np.abs(thisCal.Z_ohm), label=thisCal.legLabel, color=thisCal.color)[0] for thisCal in cals]
-    AddTicksY(Rticks, lineList, ax)
-
-    ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
-    plt.tight_layout()
-    if add is None:
-        addBit = ''
-    else:
-        addBit = add
-    outfName = f'{outFigName}Zvsf{addBit}.{xtn}'
-    fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gamry calibration plot saved to file: {outfName}')
-    plt.close()
-
-def PlotPhasevsf(cals, figSize, outFigName, xtn, add=None):
-    fig = plt.figure(figsize=figSize)
-    grid = GridSpec(1, 1)
-    ax = fig.add_subplot(grid[0, 0])
-    ax.set_xlabel(r'Frequency $f$ ($\si{Hz}$)')
-    ax.set_ylabel(r'Phase ($^\circ$)')
-    ax.set_title(r'Calibration solution Gamry sweeps --- Phase vs Frequency')
-    ax.set_xscale('log')
-
-    lineList = [ax.plot(thisCal.f_Hz, -np.angle(thisCal.Z_ohm, deg=True), label=thisCal.legLabel)[0] for thisCal in cals]
-
-    ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
-    plt.tight_layout()
-    if add is None:
-        addBit = ''
-    else:
-        addBit = add
-    outfName = f'{outFigName}Phasevsf{addBit}.{xtn}'
-    fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gamry calibration plot saved to file: {outfName}')
-    plt.close()
 
 def readFloat(line):
     return float(line.split(':')[-1])
 
-def PlotCondvsP(meas, figSize, outFigName, xtn, add=None):
-    fig = plt.figure(figsize=figSize)
-    grid = GridSpec(1, 1)
-    ax = fig.add_subplot(grid[0, 0])
-    ax.set_xlabel(r'Pressure $P$ ($\si{MPa}$)')
-    ax.set_ylabel(r'Conductivity $\sigma$ ($\si{S/m}$)')
-    ax.set_title(r'Conductivity vs Pressure' + date)
-    # ax.set_xscale('log')
-    # ax.set_yscale('log')
 
-    Plist = [thisMeas.P_MPa for thisMeas in meas]
-    Siglist = [thisMeas.sigma_Sm*1e-4 for thisMeas in meas]
-    for thisMeas in meas:
-        ax.plot(thisMeas.P_MPa,thisMeas.sigma_Sm, marker='o', markerfacecolor = 'g', markeredgecolor  = 'k')
-    # lineList = [ax.plot(thisMeas.P_MPa, thisMeas.sigma_Sm, label=thisMeas.legLabel, color=thisMeas.color, marker='o')[0]  for thisMeas in meas]
-    # AddTicksY(Rticks, lineList, ax)
+class Solution: 
+    def __init__(self):
+        self.comp = None  # Solute composition
+        self.w_ppt = None  # Solute mass concentration in g/kg
+        self.P_MPa = None  # Chamber pressure of measurement in MPa
+        self.T_K = None  # Temperature of measurement in K
+        self.Vdrive_V = None  # Driving voltage in V
+        self.fStart_Hz = None  # Start frequency in Hz
+        self.fStop_Hz = None  # Stop frequency in Hz
+        self.nfSteps = None  # Number of frequency steps
+        self.time = None  # Measurement start time
+        self.sigmaStd_Sm = None  # Known conductivity of standard solutions (as applicable)
+        self.lbl_uScm = None  # Integer of the above in uS/cm
+        self.descrip = None  # Text description (as applicable)
+        self.legLabel = None  # Legend label
+        self.color = None  # Color of lines
 
-    # ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
-    plt.tight_layout()
-    if add is None:
-        addBit = ''
-    else:
-        addBit = add
-    outfName = f'{outFigName}CondvsP{addBit}.{xtn}'
-    fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Cond vs P plot saved to file: {outfName}')
-    plt.close()
+        # Outputs
+        self.f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
+        self.Z_ohm = None  # Complex impedance values of Gamry sweep measurements in ohm
+        self.Rcalc_ohm = None  # Fit from electrical impedance spectroscopy equivalent circuit modeling in ohm
+        self.sigmaStdCalc_Sm = None  # Conductivity from interpolation of standard solution bottle label in S/m
+        self.Kcell_pm = None  # Cell constant K in 1/m
+        self.sigma_Sm = None  # DC electrical conductivity in S/m
 
-# 1/Z_cell = 1/R + i*omega*C -- Pan et al. (2021): https://doi.org/10.1029/2021GL094020
+    def loadFile(self, file):
+        with open(file) as f:
+            f.readline()  # Skip intro line
+            self.time = dtime.strptime(f.readline()[:-1], gamryDTstr)  # Measurement time
+            self.T_K = readFloat(f.readline())  # Temp
+            self.P_MPa = readFloat(f.readline())  # Pressure
+            self.descrip = f.readline()  # Text description
+            self.Vdrive_V = readFloat(f.readline())  # Driving voltage
+            self.fStart_Hz = readFloat(f.readline())  # Driving voltage
+            self.fStop_Hz = readFloat(f.readline())  # Driving voltage
+            self.nfSteps = int(readFloat(f.readline()))  # Number of f steps
+
+        if 'DIwater' in self.descrip:
+            self.comp = 'Pure H2O'
+            self.sigmaStd_Sm = 0
+            self.legLabel = r'$\approx0$'
+        elif 'Air' in self.descrip:
+            self.comp = 'Air'
+            self.sigmaStd_Sm = np.nan
+            self.legLabel = 'Air'
+        else:
+            self.comp = 'KCl'
+            if 'uScm' in self.descrip:
+                self.sigmaStd_Sm = float(self.descrip.split(':')[-1].split('uScm')[0]) / 1e4
+            elif 'mScm' in self.descrip:
+                self.sigmaStd_Sm = float(self.descrip.split(':')[-1].split('mScm')[0]) / 10
+            elif 'Sm' in self.descrip:
+                self.sigmaStd_Sm = float(self.descrip.split(':')[-1].split('Sm')[0])
+            else:
+                self.sigmaStd_Sm = np.nan
+            self.legLabel = f'{self.sigmaStd_Sm:.4f}'
+            self.lbl_uScm = int(self.sigmaStd_Sm*1e4)
+
+        _, self.f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(file, skiprows=10, unpack=True)
+        self.Z_ohm = Zabs_ohm * np.exp(1j * np.deg2rad(Phi_ohm))
+
+        return
+
+    def FitCircuit(self, circType=None, BASIN_HOPPING=False, Kest_pm=None):
+        if Kest_pm is None:
+            Kest_pm = 50
+        if circType is None:
+            circType = 'CPE'
+        if circType == 'CPE':
+            # Z_cell = R_0 + (R_0 + Z_CPE)/(1 + i*omega*C*(R_1 + Z_CPE)) -- Chin et al. (2018): https://doi.org/10.1063/1.5020076
+            initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 8e-7, 0.85, 146.2e-12, 50]
+            circStr = 'p(R_1-CPE_1,C_1)-R_0'
+        elif circType == 'RC':
+            # 1/Z_cell = 1/R + i*omega*C -- Pan et al. (2021): https://doi.org/10.1029/2021GL094020
+            initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 146.2e-12]
+            circStr = 'p(R_1,C_1)'
+        elif circType == 'RC-R':
+            initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 146.2e-12, 50]
+            circStr = 'p(R_1,C_1)-R_2'
+        else:
+            raise ValueError(f'circuit type "{circType}" not recognized.')
+        log.debug(f'Fitting {circType} circuit to ')
+
+        self.circuit = CustomCircuit(circStr, initial_guess=initial_guess)
+        self.circuit.fit(self.f_Hz, self.Z_ohm, global_opt=BASIN_HOPPING)
+        self.Zfit_ohm = self.circuit.predict(self.f_Hz)
+        self.Rcalc_ohm = self.circuit.parameters_[0]
+        log.debug(self.circuit)
+
+        return 
+
+
+class expFit:
+    def __init__(self, sigma0_Sm, lambd):
+        self.sigma0_Sm = sigma0_Sm
+        self.lambd = lambd
+
+    def __call__(self, T_K):
+        return self.sigma0_Sm * np.exp(self.lambd * T_K)
+
+
+class CalStdFit:
+    def __init__(self, interpMethod=None):
+        self.calTemps_K = 273.15 + np.concatenate((np.array([5, 10]), np.arange(15, 31.5, 1)))
+        self.calTable_Sm = {  # Conductivity measurements as a function of temperature as listed on the side of solution bottles
+            23: 1e-4*np.array([15.32, 17.11, 18.32, 18.65, 18.97, 19.41, 19.85, 20.3, 20.92, 21.51, 22.1, 22.55, 23, 23.43, 23.9, 24.56, 25.2, 25.61, 26.4]),
+            84: 1e-4*np.array([65, 67, 68, 70, 71, 73, 74, 76, 78, 79, 81, 82, 84, 86, 87, 89, 90, 92, 94]),
+            447: 1e-4*np.array([278, 318, 361, 368, 376, 385, 394, 402, 411, 419, 430, 438, 447, 457, 467, 477, 487, 496, 505]),
+            2070: 1e-4*np.array([1230, 1418, 1613, 1652, 1689, 1723, 1777, 1830, 1870, 1920, 1970, 2020, 2070, 2110, 2150, 2200, 2250, 2290, 2340]),
+            2764: 1e-4*np.array([1752, 1998, 2244, 2296, 2346, 2400, 2448, 2502, 2554, 2606, 2658, 2712, 2764, 2816, 2872, 2922, 2952, 3030, 3082]),
+            15000: 1e-4*np.array([9430, 10720, 12050, 12280, 12590, 12900, 13190, 13510, 13810, 14090, 14350, 14690, 15000, 15280, 15510, 15820, 16130, 16450, 16770]),
+            80000: 1e-4*np.array([53800, 58900, 65700, 67200, 68700, 70100, 71500, 72900, 74300, 75800, 77200, 78600, 80000, 81600, 83100, 84700, 86200, 87700, 89400])
+        }
+        if interpMethod is None:
+            fitsigma0_Sm = {23: 4.04e-6, 84: 6.882e-5, 447: 5.463e-5, 2070: 1.35e-4, 2764: 5.034e-4, 15000: 2.2572e-3, 80000: 2.3134e-2}  # Fit parameter for conductivity of each solution at 0 K
+            fitlambd = {23: 0.0213, 84: 0.0161, 447: 0.0225, 2070: 0.0246, 2764: 0.0211, 15000: 0.0218, 80000: 0.0196}  # Fit parameter exponent for temp in K
+            # Create function for evaluating fit conductivity
+            self.sigmaCalc_Sm = {std: expFit(fitsigma0_Sm[std], fitlambd[std]) for std in self.calTable_Sm.keys()}
+
+        else:
+            # Interpolate label table to get conductivity
+            self.sigmaCalc_Sm = {std: sci.interp1d(self.calTemps_K, self.calTable_Sm[std], kind=interpMethod, fill_value='extrapolate', bounds_error=False) for std in self.calTable_Sm.keys()}
+            
+    def __call__(self, T_K, lbl_uScm=None):
+        if lbl_uScm is None:
+            if isinstance(T_K, Iterable) and np.size(T_K) > 1:
+                sigma_Sm = np.array([self.sigmaCalc_Sm[std](Ti_K) for std, Ti_K in zip(self.calTable_Sm.keys(), T_K)])
+            else:
+                sigma_Sm = np.array([self.sigmaCalc_Sm[std](T_K) for std in self.calTable_Sm.keys()])
+        else:
+            sigma_Sm = float(self.sigmaCalc_Sm[lbl_uScm](T_K))
+        return sigma_Sm
+
