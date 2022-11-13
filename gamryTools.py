@@ -4,6 +4,9 @@ import scipy.interpolate as sci
 from datetime import datetime as dtime
 from glob import glob
 import logging
+from matplotlib.cm import get_cmap
+import matplotlib.colors as mc
+import colorsys
 from impedance.models.circuits import CustomCircuit
 
 # Assign logger
@@ -14,9 +17,25 @@ gamryDTstr = r'%m/%d/%Y-%I:%M %p'
 def readFloat(line):
     return float(line.split(':')[-1])
 
+def LightenColor(color, lightnessMult=0.5):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    if type(color) == str:
+        c = mc.cnames[color]
+    else:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - lightnessMult * (1 - c[1]), c[2])
 
 class Solution: 
-    def __init__(self):
+    def __init__(self, cmapName):
         self.comp = None  # Solute composition
         self.w_ppt = None  # Solute mass concentration in g/kg
         self.P_MPa = None  # Chamber pressure of measurement in MPa
@@ -31,6 +50,7 @@ class Solution:
         self.descrip = None  # Text description (as applicable)
         self.legLabel = None  # Legend label
         self.color = None  # Color of lines
+        self.cmap = get_cmap(cmapName)
 
         # Outputs
         self.f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
@@ -41,7 +61,8 @@ class Solution:
         self.sigma_Sm = None  # DC electrical conductivity in S/m
 
     def loadFile(self, file):
-        with open(file) as f:
+        self.file = file
+        with open(self.file) as f:
             f.readline()  # Skip intro line
             self.time = dtime.strptime(f.readline()[:-1], gamryDTstr)  # Measurement time
             self.T_K = readFloat(f.readline())  # Temp
@@ -56,10 +77,12 @@ class Solution:
             self.comp = 'Pure H2O'
             self.sigmaStd_Sm = 0
             self.legLabel = r'$\approx0$'
+            self.lbl_uScm = 1
         elif 'Air' in self.descrip:
             self.comp = 'Air'
             self.sigmaStd_Sm = np.nan
             self.legLabel = 'Air'
+            self.lbl_uScm = 1
         else:
             self.comp = 'KCl'
             if 'uScm' in self.descrip:
@@ -73,12 +96,15 @@ class Solution:
             self.legLabel = f'{self.sigmaStd_Sm:.4f}'
             self.lbl_uScm = int(self.sigmaStd_Sm*1e4)
 
-        _, self.f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(file, skiprows=10, unpack=True)
+        self.color = self.cmap(np.log(self.lbl_uScm)/np.log(80000))
+        self.fitColor = LightenColor(self.color, lightnessMult=0.4)
+
+        _, self.f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(self.file, skiprows=10, unpack=True)
         self.Z_ohm = Zabs_ohm * np.exp(1j * np.deg2rad(Phi_ohm))
 
         return
 
-    def FitCircuit(self, circType=None, BASIN_HOPPING=False, Kest_pm=None):
+    def FitCircuit(self, circType=None, initial_guess=None, BASIN_HOPPING=False, Kest_pm=None):
         if Kest_pm is None:
             Kest_pm = 50
         if circType is None:
@@ -95,8 +121,13 @@ class Solution:
             initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 146.2e-12, 50]
             circStr = 'p(R_1,C_1)-R_2'
         else:
-            raise ValueError(f'circuit type "{circType}" not recognized.')
-        log.debug(f'Fitting {circType} circuit to ')
+            if initial_guess is None:
+                raise ValueError(f'circuit type "{circType}" not recognized.')
+            else:
+                log.info(f'circuit type "{circType}" not recognized. Interpreting as circuit string.')
+                circStr = circType
+            
+        log.debug(f'Fitting {circType} circuit to input file {self.file}')
 
         self.circuit = CustomCircuit(circStr, initial_guess=initial_guess)
         self.circuit.fit(self.f_Hz, self.Z_ohm, global_opt=BASIN_HOPPING)

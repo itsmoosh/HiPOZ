@@ -1,24 +1,22 @@
 import os
 import numpy as np
-import matplotlib.cm
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib.cm import get_cmap
 import logging
 
 # Assign logger
 log = logging.getLogger('HIPPOS')
 
-cmapName = 'viridis'
-
 plt.rcParams['text.usetex'] = True
 plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}\sisetup{round-mode=places,scientific-notation=true,round-precision=2}'
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'STIXGeneral'
-cmap = get_cmap(cmapName)
 PLOT_AIR = False
 tfmt = '%b%d%H%M%S'
 uScm = r'\mu{S\,cm^{-1}}'
+MS_data = 'o'
+LS_fit = '-'
+
 
 def AddTicksX(Rticks, lineList, ax):
     defaultTicks = ax.get_xticks()
@@ -30,10 +28,10 @@ def AddTicksX(Rticks, lineList, ax):
 
     ax.set_xticks(allTicks)
     ax.set_xticklabels(allTickLabels)
-    lineColors = [line.get_color() for line in lineList[::5]]
-    lineStyles = [line.set_linestyle('--') for line in lineList[::2]]
+    lineColors = [line.get_color() for line in lineList]
+    #lineStyles = [line.set_linestyle('--') for line in lineList[::2]]
     plt.setp(ax.xaxis.get_ticklabels()[nDefaultTicks:], rotation='vertical')
-    [plt.setp(tick, color=color) for tick, color in zip(ax.xaxis.get_ticklabels()[nDefaultTicks:], lineColors[1:])]
+    [plt.setp(tick, color=color) for tick, color in zip(ax.xaxis.get_ticklabels()[nDefaultTicks:], lineColors)]
 
 
 def AddTicksY(Rticks, lineList, ax):
@@ -46,13 +44,13 @@ def AddTicksY(Rticks, lineList, ax):
 
     ax.set_yticks(allTicks)
     ax.set_yticklabels(allTickLabels)
-    lineColors = [line.get_color() for line in lineList[::5]]
-    lineStyles = [line.set_linestyle('--') for line in lineList[::2]]
-    plt.setp(ax.yaxis.get_ticklabels()[nDefaultTicks:])
-    [plt.setp(tick, color=color) for tick, color in zip(ax.yaxis.get_ticklabels()[nDefaultTicks:], lineColors[1:])]
+    lineColors = [line.get_color() for line in lineList]
+    #lineStyles = [line.set_linestyle('--') for line in lineList[::2]]
+    plt.setp(ax.yaxis.get_ticklabels()[nDefaultTicks:], rotation='horizontal')
+    [plt.setp(tick, color=color) for tick, color in zip(ax.yaxis.get_ticklabels()[nDefaultTicks:], lineColors)]
 
 
-def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
+def PlotZ(sols, figSize, outFigName, xtn, Rticks, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
@@ -62,8 +60,8 @@ def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    lineList = [ax.plot(np.real(thisCal.Z_ohm), -np.imag(thisCal.Z_ohm), label=thisCal.legLabel, color=thisCal.color)[0]
-                for thisCal in cals]
+    dotList = [ax.scatter(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), marker=MS_data, label=sol.legLabel, color=sol.color) for sol in sols]
+    lineList = [ax.plot(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)[0] for sol in sols]
     AddTicksX(Rticks, lineList, ax)
 
     ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
@@ -74,12 +72,11 @@ def PlotZ(cals, figSize, outFigName, xtn, Rticks, add=None):
         addBit = add
     outfName = f'{outFigName}Z{addBit}.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gamry calibration plot saved to file: {outfName}')
-    plt.show()
+    log.info(f'Gamry calibration plot saved to file: {outfName}')
     plt.close()
 
 
-def PlotY(cals, figSize, outFigName, xtn, Rticks, add=None):
+def PlotY(sols, figSize, outFigName, xtn, Rticks, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
@@ -89,9 +86,8 @@ def PlotY(cals, figSize, outFigName, xtn, Rticks, add=None):
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    lineList = [
-        ax.plot(1 / np.real(thisCal.Z_ohm), -1 / np.imag(thisCal.Z_ohm), label=thisCal.legLabel, color=thisCal.color)[0]
-        for thisCal in cals]
+    dotList = [ax.scatter(1/np.real(sol.Z_ohm), -1/np.imag(sol.Z_ohm), marker=MS_data, label=sol.legLabel, color=sol.color) for sol in sols]
+    lineList = [ax.plot(1/np.real(sol.Zfit_ohm), -1/np.imag(sol.Zfit_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)[0] for sol in sols]
     AddTicksX(Rticks, lineList, ax)
 
     ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
@@ -102,11 +98,13 @@ def PlotY(cals, figSize, outFigName, xtn, Rticks, add=None):
         addBit = add
     outfName = f'{outFigName}Y{addBit}.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gamry calibration plot saved to file: {outfName}')
+    log.info(f'Gamry calibration plot saved to file: {outfName}')
     plt.close()
 
+    return
 
-def PlotZvsf(cals, figSize, outFigName, xtn, Rticks, add=None):
+
+def PlotZvsf(sols, figSize, outFigName, xtn, Rticks, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
@@ -116,8 +114,8 @@ def PlotZvsf(cals, figSize, outFigName, xtn, Rticks, add=None):
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    lineList = [ax.plot(thisCal.f_Hz, np.abs(thisCal.Z_ohm), label=thisCal.legLabel, color=thisCal.color)[0] for thisCal
-                in cals]
+    dotList = [ax.scatter(sol.f_Hz, np.abs(sol.Z_ohm), marker=MS_data, label=sol.legLabel, color=sol.color) for sol in sols]
+    lineList = [ax.plot(sol.f_Hz, np.abs(sol.Zfit_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)[0] for sol in sols]
     AddTicksY(Rticks, lineList, ax)
 
     ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
@@ -128,11 +126,13 @@ def PlotZvsf(cals, figSize, outFigName, xtn, Rticks, add=None):
         addBit = add
     outfName = f'{outFigName}Zvsf{addBit}.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gamry calibration plot saved to file: {outfName}')
+    log.info(f'Gamry calibration plot saved to file: {outfName}')
     plt.close()
 
+    return
 
-def PlotPhasevsf(cals, figSize, outFigName, xtn, add=None):
+
+def PlotPhasevsf(sols, figSize, outFigName, xtn, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
@@ -141,7 +141,8 @@ def PlotPhasevsf(cals, figSize, outFigName, xtn, add=None):
     ax.set_title(r'Calibration solution Gamry sweeps --- Phase vs Frequency')
     ax.set_xscale('log')
 
-    lineList = [ax.plot(thisCal.f_Hz, np.angle(thisCal.Z_ohm, deg=True), label=thisCal.legLabel)[0] for thisCal in cals]
+    dotList = [ax.scatter(sol.f_Hz, np.angle(sol.Z_ohm, deg=True), marker=MS_data, color=sol.color, label=sol.legLabel) for sol in sols]
+    lineList = [ax.plot(sol.f_Hz, np.angle(sol.Zfit_ohm, deg=True), ls=LS_fit, color=sol.fitColor, label=f'{sol.legLabel} fit')[0] for sol in sols]
 
     ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
@@ -151,11 +152,13 @@ def PlotPhasevsf(cals, figSize, outFigName, xtn, add=None):
         addBit = add
     outfName = f'{outFigName}Phasevsf{addBit}.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Gamry calibration plot saved to file: {outfName}')
+    log.info(f'Gamry calibration plot saved to file: {outfName}')
     plt.close()
 
+    return
 
-def PlotCondvsP(meas, figSize, outFigName, xtn, add=None):
+
+def PlotCondvsP(sols, figSize, outFigName, xtn, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
@@ -165,11 +168,11 @@ def PlotCondvsP(meas, figSize, outFigName, xtn, add=None):
     # ax.set_xscale('log')
     # ax.set_yscale('log')
 
-    Plist = [thisMeas.P_MPa for thisMeas in meas]
-    Siglist = [thisMeas.sigma_Sm * 1e-4 for thisMeas in meas]
-    for thisMeas in meas:
-        ax.plot(thisMeas.P_MPa, thisMeas.sigma_Sm, marker='o', markerfacecolor='g', markeredgecolor='k')
-    # lineList = [ax.plot(thisMeas.P_MPa, thisMeas.sigma_Sm, label=thisMeas.legLabel, color=thisMeas.color, marker='o')[0]  for thisMeas in meas]
+    Plist = [sol.P_MPa for sol in sols]
+    Siglist = [sol.sigma_Sm * 1e-4 for sol in sols]
+    for sol in sols:
+        ax.plot(sol.P_MPa, sol.sigma_Sm, marker='o', markerfacecolor='g', markeredgecolor='k')
+    # lineList = [ax.plot(sol.P_MPa, sol.sigma_Sm, label=sol.legLabel, color=sol.color, marker='o')[0]  for sol in sols]
     # AddTicksY(Rticks, lineList, ax)
 
     # ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
@@ -180,12 +183,14 @@ def PlotCondvsP(meas, figSize, outFigName, xtn, add=None):
         addBit = add
     outfName = f'{outFigName}CondvsP{addBit}.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=200)
-    print(f'Cond vs P plot saved to file: {outfName}')
+    log.info(f'Cond vs P plot saved to file: {outfName}')
     plt.close()
 
+    return
 
-def PlotZfit(meas, figSize, xtn, outFigName=None):
-    for thisMeas in meas:
+
+def PlotZfit(sols, figSize, xtn, outFigName=None):
+    for sol in sols:
         fig = plt.figure(figsize=figSize)
         grid = GridSpec(1, 1)
         ax = fig.add_subplot(grid[0, 0])
@@ -193,19 +198,20 @@ def PlotZfit(meas, figSize, xtn, outFigName=None):
         ax.set_axisbelow(True)
         ax.set_xlabel('Re($Z$)')
         ax.set_ylabel('$-$Im($Z$)')
-        ax.scatter(np.real(thisMeas.Z_ohm), -np.imag(thisMeas.Z_ohm), label='Data', color='blue')
-        ax.plot(np.real(thisMeas.Zfit_ohm), -np.imag(thisMeas.Zfit_ohm), label='Fit', color='orange')
+        ax.scatter(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), marker=MS_data, label=sol.legLabel, color=sol.color)
+        ax.plot(np.real(sol.Zfit_ohm), -np.imag(sol.Zfit_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)
+        ax.set_xlim(left=0)
         plt.legend()
-        tstr = thisMeas.time.strftime(tfmt)
+        tstr = sol.time.strftime(tfmt)
         if outFigName is None:
-            thisOutFigName = f'{thisMeas.lbl_uScm}uScm_{tstr}'
+            thisOutFigName = f'{sol.lbl_uScm}uScm_{tstr}'
         else:
             thisOutFigName = outFigName
-        ax.set_title(f'Nyquist plot for ${thisMeas.lbl_uScm}\,\si{{{uScm}}}$ at {tstr}, $K_\mathrm{{cell}}=\SI{{{thisMeas.Kcell_pm:.2f}}}{{m^{{-1}}}}$')
+        ax.set_title(f'Nyquist plot for ${sol.lbl_uScm}\,\si{{{uScm}}}$ at {tstr}, $K_\mathrm{{cell}}={sol.Kcell_pm:.2f}\,\si{{m^{{-1}}}}$')
 
         outfName = f'{thisOutFigName}Nyquist.{xtn}'
         fig.savefig(outfName, format=xtn, dpi=200)
-        log.debug(f'Nyquist plot saved to file: {outfName}')
+        log.info(f'Nyquist plot saved to file: {outfName}')
         plt.close()
 
     return

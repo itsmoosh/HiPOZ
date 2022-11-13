@@ -1,13 +1,9 @@
 import os, sys
 
-import matplotlib.cm
 import numpy as np
 from glob import glob
 import logging
 from datetime import datetime as dtime
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
-from matplotlib.cm import get_cmap
 from gamryTools import Solution, CalStdFit
 from gamryPlots import PlotY, PlotZ, PlotZvsf, PlotPhasevsf, PlotZfit
 
@@ -19,9 +15,9 @@ log.setLevel(logging.DEBUG)
 log.addHandler(stream)
 
 date = '20220915'
-circType = 'CPE'
+circType = 'CPE'  # Options are 'CPE', 'RC', and 'RC-R'. If desired, a circuit string can be entered here instead.
+initial_guess = None  # Required when circType is not in the above list. Ignored otherwise.
 cmapName = 'viridis'
-cmap = get_cmap(cmapName)
 outFigName = 'GamryCal'
 figSize = (6,6)
 xtn = 'pdf'
@@ -36,14 +32,14 @@ cals = np.empty(nSweeps, dtype=object)
 calStd = CalStdFit(interpMethod='cubic')
 
 for i, file in enumerate(gamryFiles):
-    cals[i] = Solution()
+    cals[i] = Solution(cmapName)
     cals[i].loadFile(file)
 
     if not np.isnan(cals[i].sigmaStd_Sm):
         cals[i].sigmaStdCalc_Sm = calStd(cals[i].T_K, lbl_uScm=cals[i].lbl_uScm)
     else:
         cals[i].sigmaStdCalc_Sm = 1e-8  # Default air conductivity
-    cals[i].FitCircuit(circType=circType)
+    cals[i].FitCircuit(circType=circType, initial_guess=initial_guess)
     cals[i].Kcell_pm = cals[i].sigmaStdCalc_Sm * cals[i].Rcalc_ohm
 
     if not PLOT_AIR and cals[i].comp == 'Air':
@@ -51,15 +47,8 @@ for i, file in enumerate(gamryFiles):
         cals.delete(cals[i])
         add = '_noAir'
 
-listStandards = np.array([cal.sigmaStd_Sm for cal in cals])
-uniqueListStandards = np.unique(listStandards)
-standardsSort = np.argsort(uniqueListStandards)
-for cal in cals:
-    colorLabel = standardsSort[cal.sigmaStd_Sm == uniqueListStandards][0]
-    cal.color = cmap(colorLabel / np.max(uniqueListStandards[standardsSort]))
-
-
 # Sort list based on conductivity
+listStandards = np.array([cal.sigmaStd_Sm for cal in cals])
 iSort = np.argsort(listStandards)
 cals = cals[iSort]
 
