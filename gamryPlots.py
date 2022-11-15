@@ -216,3 +216,48 @@ def PlotZfit(sols, figSize, xtn, outFigName=None):
 
     return
 
+def PlotSigma(allMeas,figSize,outFigName,xtn):
+    colorstr = 'gbryk'
+    iColor = 0
+
+    fig = plt.figure(figsize=figSize)
+    grid = GridSpec(1, 1)
+    ax1 = fig.add_subplot(2,1,1)
+    ax2 = fig.add_subplot(2,1,2)
+    for ax in ax1, ax2:
+        ax.grid()
+        ax.set_axisbelow(True)
+        ax.set_ylabel('$\sigma$(S/m)')
+        ax.set_yscale('log')
+    ax1.set_xlabel('$T$(K)')
+    ax2.set_xlabel('$P$(MPa)')
+
+    allPs = np.zeros_like(allMeas)
+    allTs = np.zeros_like(allMeas)
+    allSigs = np.zeros_like(allMeas)
+    for i,meas in enumerate(allMeas):
+        allPs[i] = [thisMeas.P_MPa for thisMeas in meas]
+        allTs[i] = [thisMeas.T_K for thisMeas in meas]
+        allSigs[i] = [thisMeas.sigma_Sm for thisMeas in meas]
+
+    for meas in allMeas:
+        Plist = np.array([thisMeas.P_MPa for thisMeas in meas])
+        # klist = [thisMeas. for thisMeas in meas]
+        iSort  = np.argsort(Plist)
+        Tlist = np.array([thisMeas.T_K for thisMeas in meas])
+        Siglist = np.array([thisMeas.sigma_Sm for thisMeas in meas])
+        # for thisMeas in meas:
+        #     ax.plot(thisMeas.P_MPa,thisMeas.sigma_Sm, marker='o', markerfacecolor = colorstr[iColor], markeredgecolor  = 'k')
+        for thisMeas in meas:
+            # ax1.plot(thisMeas.T_K,thisMeas.sigma_Sm, marker='o', markerfacecolor = colorstr[iColor], markeredgecolor  = 'k')
+            ax1.plot(thisMeas.T_K,thisMeas.sigma_Sm, marker='o', markerfacecolor = thisMeas.color, markeredgecolor  = 'k')
+            ax2.plot(thisMeas.P_MPa,thisMeas.sigma_Sm, marker='o', markerfacecolor = thisMeas.color, markeredgecolor  = 'k')
+        iColor += 1
+
+    # ax.set_yscale('log')
+    plt.show()
+    plt.tight_layout()
+    outfName = f'{outFigName}CondvsTP.{xtn}'
+    fig.savefig(outfName, format=xtn, dpi=500)
+    print(f'Cond vs T plot saved to file: {outfName}')
+    plt.close()
