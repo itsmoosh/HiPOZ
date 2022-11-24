@@ -134,7 +134,7 @@ class Solution:
                     circ += (j1 := elm.Line().length(circ.unit/2).up())
                     circ += elm.Line().at(j1.start).length(circ.unit/2).down()
                     circ += elm.Resistor().right().label(f'${R1}$')
-                    circ += elm.CPE().label(f'${CPE1}$')
+                    circ += elm.CPE().label(f'$Z_\mathrm{{{CPE1[:-2]}}}$')
                     circ += elm.Line().length(circ.unit/2).up().dot()
                     circ += (j2 := elm.Line().length(circ.unit/2).up())
                     circ += elm.Capacitor().endpoints(j1.end, j2.end).label(f'${C1}$').right()
