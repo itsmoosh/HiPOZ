@@ -39,7 +39,7 @@ for i, file in enumerate(gamryFiles):
         cals[i].sigmaStdCalc_Sm = calStd(cals[i].T_K, lbl_uScm=cals[i].lbl_uScm)
     else:
         cals[i].sigmaStdCalc_Sm = 1e-8  # Default air conductivity
-    cals[i].FitCircuit(circType=circType, initial_guess=initial_guess)
+    cals[i].FitCircuit(circType=circType, initial_guess=initial_guess, PRINT=(i == 0))
     cals[i].Kcell_pm = cals[i].sigmaStdCalc_Sm * cals[i].Rcalc_ohm
 
     if not PLOT_AIR and cals[i].comp == 'Air':

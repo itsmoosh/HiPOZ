@@ -8,11 +8,14 @@ from matplotlib.cm import get_cmap
 import matplotlib.colors as mc
 import colorsys
 from impedance.models.circuits import CustomCircuit
+import schemdraw
+import schemdraw.elements as elm
 
 # Assign logger
 log = logging.getLogger('HIPPOS')
 
 gamryDTstr = r'%m/%d/%Y-%I:%M %p'
+Lleads = 2
 
 def readFloat(line):
     return float(line.split(':')[-1])
@@ -51,6 +54,9 @@ class Solution:
         self.legLabel = None  # Legend label
         self.color = None  # Color of lines
         self.cmap = get_cmap(cmapName)
+        self.file = None  # File from which data has been loaded
+        self.circFile = None  # File to print circuit diagram to
+        self.xtn = 'pdf'
 
         # Outputs
         self.f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
@@ -104,22 +110,72 @@ class Solution:
 
         return
 
-    def FitCircuit(self, circType=None, initial_guess=None, BASIN_HOPPING=False, Kest_pm=None):
+    def FitCircuit(self, circType=None, initial_guess=None, BASIN_HOPPING=False, Kest_pm=None, PRINT=True, circFile=None):
         if Kest_pm is None:
             Kest_pm = 50
         if circType is None:
             circType = 'CPE'
+        if circFile is None:
+            self.circFile = f'{circType}circuit.{self.xtn}'
+        else:
+            self.circFile = circFile
         if circType == 'CPE':
             # Z_cell = R_0 + (R_0 + Z_CPE)/(1 + i*omega*C*(R_1 + Z_CPE)) -- Chin et al. (2018): https://doi.org/10.1063/1.5020076
             initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 8e-7, 0.85, 146.2e-12, 50]
-            circStr = 'p(R_1-CPE_1,C_1)-R_0'
+            R0 = r'R_0'
+            R1 = r'R_1'
+            CPE1 = r'CPE_1'
+            C1 = r'C_1'
+            circStr = f'p({R1}-{CPE1},{C1})-{R0}'
+            if PRINT:
+                with schemdraw.Drawing(file=self.circFile, show=False) as circ:
+                    circ.config(unit=Lleads)
+                    circ += elm.Resistor().label(f'${R0}$').dot()
+                    circ += (j1 := elm.Line().length(circ.unit/2).up())
+                    circ += elm.Line().at(j1.start).length(circ.unit/2).down()
+                    circ += elm.Resistor().right().label(f'${R1}$')
+                    circ += elm.CPE().label(f'${CPE1}$')
+                    circ += elm.Line().length(circ.unit/2).up().dot()
+                    circ += (j2 := elm.Line().length(circ.unit/2).up())
+                    circ += elm.Capacitor().endpoints(j1.end, j2.end).label(f'${C1}$').right()
+                    circ += elm.Line().at(j2.start).length(circ.unit/2).right()
+                log.info(f'Equivalent circuit diagram saved to file: {self.circFile}')
         elif circType == 'RC':
             # 1/Z_cell = 1/R + i*omega*C -- Pan et al. (2021): https://doi.org/10.1029/2021GL094020
             initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 146.2e-12]
-            circStr = 'p(R_1,C_1)'
+            R1 = r'R_1'
+            C1 = r'C_1'
+            circStr = f'p({R1},{C1})'
+            if PRINT:
+                with schemdraw.Drawing(file=self.circFile, show=False) as circ:
+                    circ.config(unit=Lleads)
+                    circ += elm.Line().length(circ.unit/2).dot()
+                    circ += (j1 := elm.Line().length(circ.unit/2).up())
+                    circ += elm.Line().at(j1.start).length(circ.unit/2).down()
+                    circ += elm.Resistor().right().label(f'${R1}$')
+                    circ += elm.Line().length(circ.unit/2).up().dot()
+                    circ += (j2 := elm.Line().length(circ.unit/2).up())
+                    circ += elm.Capacitor().endpoints(j1.end, j2.end).label(f'${C1}$').right()
+                    circ += elm.Line().at(j2.start).length(circ.unit/2).right()
+                log.info(f'Equivalent circuit diagram saved to file: {self.circFile}')
         elif circType == 'RC-R':
             initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 146.2e-12, 50]
-            circStr = 'p(R_1,C_1)-R_2'
+            R0 = r'R_0'
+            R1 = r'R_1'
+            C1 = r'C_1'
+            circStr = f'p({R1},{C1})-{R0}'
+            if PRINT:
+                with schemdraw.Drawing(file=self.circFile, show=False) as circ:
+                    circ.config(unit=Lleads)
+                    circ += elm.Resistor().label(f'${R0}$').dot()
+                    circ += (j1 := elm.Line().length(circ.unit/2).up())
+                    circ += elm.Line().at(j1.start).length(circ.unit/2).down()
+                    circ += elm.Resistor().right().label(f'${R1}$')
+                    circ += elm.Line().length(circ.unit/2).up().dot()
+                    circ += (j2 := elm.Line().length(circ.unit/2).up())
+                    circ += elm.Capacitor().endpoints(j1.end, j2.end).label(f'${C1}$').right()
+                    circ += elm.Line().at(j2.start).length(circ.unit/2).right()
+                log.info(f'Equivalent circuit diagram saved to file: {self.circFile}')
         else:
             if initial_guess is None:
                 raise ValueError(f'circuit type "{circType}" not recognized.')
@@ -178,4 +234,3 @@ class CalStdFit:
         else:
             sigma_Sm = float(self.sigmaCalc_Sm[lbl_uScm](T_K))
         return sigma_Sm
-
