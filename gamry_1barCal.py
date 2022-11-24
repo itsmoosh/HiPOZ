@@ -24,6 +24,7 @@ xtn = 'pdf'
 PLOT_AIR = False  # Whether to include dry run spectra in analysis
 ADD_TICKS = False  # Whether to add ticks marking the fitted resistance/reactance values on plots
 PAIR_DATA_W_FIT = True  # Whether to pair data and fit together for each solution in legend labels
+LOW_SIG_CUTOFF = True  # Whether to cut off plotting of data at high frequencies (> 100 kHz) for low-conductivity solutions (< 2000 uS/cm), which get bypassed by transmission line effects
 
 # Import data
 add = None
@@ -57,6 +58,13 @@ cals = cals[iSort]
 #Tcal_C = np.array([22.8, 22.3, 21.7, 21.5, 23.215, 21.8, 21.9])
 #sigmaStdBottle_Sm = np.array([calStd(Tcal_C + 273.15)])
 #sigmaStdlist_Sm = np.array([sol.sigmaStd_Sm for sol in cals])  # value on each bottle at 25 deg C, not using fits for temp dependence
+
+if LOW_SIG_CUTOFF:
+    for sol in cals:
+        if sol.lbl_uScm < 2000:
+            sol.Z_ohm = sol.Z_ohm[sol.f_Hz < 1e5]
+            sol.Zfit_ohm = sol.Zfit_ohm[sol.f_Hz < 1e5]
+            sol.f_Hz = sol.f_Hz[sol.f_Hz < 1e5]
 
 PlotZfit(cals, figSize, xtn, LEG_PAIRS=PAIR_DATA_W_FIT)
 
