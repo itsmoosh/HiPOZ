@@ -5,5 +5,7 @@ LabVIEW 2018+ is required for measurement software.
 Python programs for evaluating conductivity require the following (install with conda):
 * numpy
 * matplotlib
-* impedance
+with conda-forge (conda install -c conda-forge pkgName)
 * schemdraw
+and with pip (pip install pkgName):
+* impedance
