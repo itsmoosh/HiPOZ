@@ -17,6 +17,18 @@ uScm = r'\mu{S\,cm^{-1}}'
 MS_data = 'o'
 LS_fit = '-'
 
+def GetUnique(handles, labels, PAIRED=True):
+    outLabels = np.unique(labels)
+    if not PAIRED:
+        dataLabels = np.where([not 'fit' in label for label in outLabels])[0]
+        fitLabels = np.where(['fit' in label for label in outLabels])[0]
+        outLabels = np.concatenate((outLabels[dataLabels], outLabels[fitLabels]))
+    iUnique = np.array([next(i for i,label in enumerate(labels) if label == uLabel) for uLabel in outLabels])
+    outHandles = [handles[i] for i in iUnique]
+    outLabels = [labels[i] for i in iUnique]
+
+    return outHandles, outLabels
+
 
 def AddTicksX(Rticks, lineList, ax):
     defaultTicks = ax.get_xticks()
@@ -50,21 +62,24 @@ def AddTicksY(Rticks, lineList, ax):
     [plt.setp(tick, color=color) for tick, color in zip(ax.yaxis.get_ticklabels()[nDefaultTicks:], lineColors)]
 
 
-def PlotZ(sols, figSize, outFigName, xtn, Rticks, add=None):
+def PlotZ(sols, figSize, outFigName, xtn, Rticks, add=None, LEG_PAIRS=True):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
     ax.set_xlabel(r'$\mathrm{Re}\{Z\}$ ($\Omega$)')
     ax.set_ylabel(r'$-\mathrm{Im}\{Z\}$ ($\Omega$)')
-    ax.set_title(r'Calibration solution Gamry sweeps --- impedance')
+    ax.set_title(r'Calibration solution complex impedance')
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    dotList = [ax.scatter(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), marker=MS_data, label=sol.legLabel, color=sol.color) for sol in sols]
+    dotList = [ax.scatter(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), marker=MS_data, label=f'{sol.legLabel} data', color=sol.color) for sol in sols]
     lineList = [ax.plot(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)[0] for sol in sols]
-    AddTicksX(Rticks, lineList, ax)
+    if Rticks is not None:
+        AddTicksX(Rticks, lineList, ax)
 
-    ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    allHandles, allLabels = ax.get_legend_handles_labels()
+    handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
+    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -76,21 +91,24 @@ def PlotZ(sols, figSize, outFigName, xtn, Rticks, add=None):
     plt.close()
 
 
-def PlotY(sols, figSize, outFigName, xtn, Rticks, add=None):
+def PlotY(sols, figSize, outFigName, xtn, Rticks, add=None, LEG_PAIRS=True):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
     ax.set_xlabel(r'$\mathrm{Re}\{Y\}$ ($\mho$)')
     ax.set_ylabel(r'$-\mathrm{Im}\{Y\}$ ($\mho$)')
-    ax.set_title(r'Calibration solution Gamry sweeps --- conductance')
+    ax.set_title(r'Calibration solution complex conductance')
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    dotList = [ax.scatter(1/np.real(sol.Z_ohm), -1/np.imag(sol.Z_ohm), marker=MS_data, label=sol.legLabel, color=sol.color) for sol in sols]
+    dotList = [ax.scatter(1/np.real(sol.Z_ohm), -1/np.imag(sol.Z_ohm), marker=MS_data, label=f'{sol.legLabel} data', color=sol.color) for sol in sols]
     lineList = [ax.plot(1/np.real(sol.Zfit_ohm), -1/np.imag(sol.Zfit_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)[0] for sol in sols]
-    AddTicksX(Rticks, lineList, ax)
+    if Rticks is not None:
+        AddTicksX(Rticks, lineList, ax)
 
-    ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    allHandles, allLabels = ax.get_legend_handles_labels()
+    handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
+    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -104,21 +122,24 @@ def PlotY(sols, figSize, outFigName, xtn, Rticks, add=None):
     return
 
 
-def PlotZvsf(sols, figSize, outFigName, xtn, Rticks, add=None):
+def PlotZvsf(sols, figSize, outFigName, xtn, Rticks, add=None, LEG_PAIRS=True):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
     ax.set_xlabel(r'Frequency $f$ ($\si{Hz}$)')
     ax.set_ylabel(r'Impedance $|Z|$ ($\Omega$)')
-    ax.set_title(r'Calibration solution Gamry sweeps --- impedance spectrum')
+    ax.set_title(r'Calibration solution impedance spectrum')
     ax.set_xscale('log')
     ax.set_yscale('log')
 
-    dotList = [ax.scatter(sol.f_Hz, np.abs(sol.Z_ohm), marker=MS_data, label=sol.legLabel, color=sol.color) for sol in sols]
+    dotList = [ax.scatter(sol.f_Hz, np.abs(sol.Z_ohm), marker=MS_data, label=f'{sol.legLabel} data', color=sol.color) for sol in sols]
     lineList = [ax.plot(sol.f_Hz, np.abs(sol.Zfit_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)[0] for sol in sols]
-    AddTicksY(Rticks, lineList, ax)
+    if Rticks is not None:
+        AddTicksY(Rticks, lineList, ax)
 
-    ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    allHandles, allLabels = ax.get_legend_handles_labels()
+    handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
+    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -132,19 +153,21 @@ def PlotZvsf(sols, figSize, outFigName, xtn, Rticks, add=None):
     return
 
 
-def PlotPhasevsf(sols, figSize, outFigName, xtn, add=None):
+def PlotPhasevsf(sols, figSize, outFigName, xtn, add=None, LEG_PAIRS=True):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
     ax.set_xlabel(r'Frequency $f$ ($\si{Hz}$)')
     ax.set_ylabel(r'Phase ($^\circ$)')
-    ax.set_title(r'Calibration solution Gamry sweeps --- Phase vs Frequency')
+    ax.set_title(r'Calibration solution phase spectrum')
     ax.set_xscale('log')
 
-    dotList = [ax.scatter(sol.f_Hz, np.angle(sol.Z_ohm, deg=True), marker=MS_data, color=sol.color, label=sol.legLabel) for sol in sols]
+    dotList = [ax.scatter(sol.f_Hz, np.angle(sol.Z_ohm, deg=True), marker=MS_data, color=sol.color, label=f'{sol.legLabel} data') for sol in sols]
     lineList = [ax.plot(sol.f_Hz, np.angle(sol.Zfit_ohm, deg=True), ls=LS_fit, color=sol.fitColor, label=f'{sol.legLabel} fit')[0] for sol in sols]
 
-    ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    allHandles, allLabels = ax.get_legend_handles_labels()
+    handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
+    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -172,8 +195,9 @@ def PlotCondvsP(sols, figSize, outFigName, xtn, add=None):
     Siglist = [sol.sigma_Sm * 1e-4 for sol in sols]
     for sol in sols:
         ax.plot(sol.P_MPa, sol.sigma_Sm, marker='o', markerfacecolor='g', markeredgecolor='k')
-    # lineList = [ax.plot(sol.P_MPa, sol.sigma_Sm, label=sol.legLabel, color=sol.color, marker='o')[0]  for sol in sols]
-    # AddTicksY(Rticks, lineList, ax)
+    # lineList = [ax.plot(sol.P_MPa, sol.sigma_Sm, label=f'{sol.legLabel} data', color=sol.color, marker='o')[0]  for sol in sols]
+    # if Rticks is not None:
+    #     AddTicksY(Rticks, lineList, ax)
 
     # ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
     plt.tight_layout()
@@ -189,7 +213,7 @@ def PlotCondvsP(sols, figSize, outFigName, xtn, add=None):
     return
 
 
-def PlotZfit(sols, figSize, xtn, outFigName=None):
+def PlotZfit(sols, figSize, xtn, outFigName=None, LEG_PAIRS=True):
     for sol in sols:
         fig = plt.figure(figsize=figSize)
         grid = GridSpec(1, 1)
@@ -198,10 +222,13 @@ def PlotZfit(sols, figSize, xtn, outFigName=None):
         ax.set_axisbelow(True)
         ax.set_xlabel('Re($Z$)')
         ax.set_ylabel('$-$Im($Z$)')
-        ax.scatter(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), marker=MS_data, label=sol.legLabel, color=sol.color)
+        ax.scatter(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), marker=MS_data, label=f'{sol.legLabel} data', color=sol.color)
         ax.plot(np.real(sol.Zfit_ohm), -np.imag(sol.Zfit_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)
         ax.set_xlim(left=0)
-        plt.legend()
+
+        allHandles, allLabels = ax.get_legend_handles_labels()
+        handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
+        ax.legend(handles, labels)
         tstr = sol.time.strftime(tfmt)
         if outFigName is None:
             thisOutFigName = f'{sol.lbl_uScm}uScm_{tstr}'
@@ -216,7 +243,7 @@ def PlotZfit(sols, figSize, xtn, outFigName=None):
 
     return
 
-def PlotSigma(allMeas,figSize,outFigName,xtn):
+def PlotSigma(allMeas, figSize, outFigName, xtn):
     colorstr = 'gbryk'
     iColor = 0
 

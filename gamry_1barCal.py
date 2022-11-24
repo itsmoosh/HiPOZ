@@ -14,14 +14,16 @@ stream.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
 log.setLevel(logging.DEBUG)
 log.addHandler(stream)
 
-date = '20220915'
+date = '20221123'
 circType = 'CPE'  # Options are 'CPE', 'RC', and 'RC-R'. If desired, a circuit string can be entered here instead.
 initial_guess = None  # Required when circType is not in the above list. Ignored otherwise.
 cmapName = 'viridis'
 outFigName = 'GamryCal'
 figSize = (6,6)
 xtn = 'pdf'
-PLOT_AIR = False
+PLOT_AIR = False  # Whether to include dry run spectra in analysis
+ADD_TICKS = False  # Whether to add ticks marking the fitted resistance/reactance values on plots
+PAIR_DATA_W_FIT = True  # Whether to pair data and fit together for each solution in legend labels
 
 # Import data
 add = None
@@ -56,11 +58,16 @@ cals = cals[iSort]
 #sigmaStdBottle_Sm = np.array([calStd(Tcal_C + 273.15)])
 #sigmaStdlist_Sm = np.array([sol.sigmaStd_Sm for sol in cals])  # value on each bottle at 25 deg C, not using fits for temp dependence
 
-PlotZfit(cals, figSize, xtn)
+PlotZfit(cals, figSize, xtn, LEG_PAIRS=PAIR_DATA_W_FIT)
 
-Rtick_ohm = np.array([cal.Rcalc_ohm for cal in cals])
-PlotZ(cals, figSize, outFigName, xtn, Rtick_ohm)
-PlotY(cals, figSize, outFigName, xtn, 1/Rtick_ohm)
-PlotZvsf(cals, figSize, outFigName, xtn, Rtick_ohm)
-PlotPhasevsf(cals, figSize, outFigName, xtn)
+if ADD_TICKS:
+    Rtick_ohm = np.array([cal.Rcalc_ohm for cal in cals])
+    Ytick_mho = 1/Rtick_ohm
+else:
+    Rtick_ohm = None
+    Ytick_mho = None
+PlotZ(cals, figSize, outFigName, xtn, Rtick_ohm, LEG_PAIRS=PAIR_DATA_W_FIT)
+PlotY(cals, figSize, outFigName, xtn, Ytick_mho, LEG_PAIRS=PAIR_DATA_W_FIT)
+PlotZvsf(cals, figSize, outFigName, xtn, Rtick_ohm, LEG_PAIRS=PAIR_DATA_W_FIT)
+PlotPhasevsf(cals, figSize, outFigName, xtn, LEG_PAIRS=PAIR_DATA_W_FIT)
 
