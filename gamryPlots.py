@@ -79,7 +79,7 @@ def PlotZ(sols, figSize, outFigName, xtn, Rticks, add=None, LEG_PAIRS=True):
 
     allHandles, allLabels = ax.get_legend_handles_labels()
     handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
-    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\mathrm{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -108,7 +108,7 @@ def PlotY(sols, figSize, outFigName, xtn, Rticks, add=None, LEG_PAIRS=True):
 
     allHandles, allLabels = ax.get_legend_handles_labels()
     handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
-    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\mathrm{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -126,7 +126,7 @@ def PlotZvsf(sols, figSize, outFigName, xtn, Rticks, add=None, LEG_PAIRS=True):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
-    ax.set_xlabel(r'Frequency $f$ ($\si{Hz}$)')
+    ax.set_xlabel(r'Frequency $f$ ($\mathrm{Hz}$)')
     ax.set_ylabel(r'Impedance $|Z|$ ($\Omega$)')
     ax.set_title(r'Calibration solution impedance spectrum')
     ax.set_xscale('log')
@@ -139,7 +139,7 @@ def PlotZvsf(sols, figSize, outFigName, xtn, Rticks, add=None, LEG_PAIRS=True):
 
     allHandles, allLabels = ax.get_legend_handles_labels()
     handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
-    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\mathrm{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -157,7 +157,7 @@ def PlotPhasevsf(sols, figSize, outFigName, xtn, add=None, LEG_PAIRS=True):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
-    ax.set_xlabel(r'Frequency $f$ ($\si{Hz}$)')
+    ax.set_xlabel(r'Frequency $f$ ($\mathrm{Hz}$)')
     ax.set_ylabel(r'Phase ($^\circ$)')
     ax.set_title(r'Calibration solution phase spectrum')
     ax.set_xscale('log')
@@ -167,7 +167,7 @@ def PlotPhasevsf(sols, figSize, outFigName, xtn, add=None, LEG_PAIRS=True):
 
     allHandles, allLabels = ax.get_legend_handles_labels()
     handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
-    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    ax.legend(handles, labels, title=r'$\sigma_\mathrm{std}$ ($\mathrm{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -185,8 +185,8 @@ def PlotCondvsP(sols, figSize, outFigName, xtn, add=None):
     fig = plt.figure(figsize=figSize)
     grid = GridSpec(1, 1)
     ax = fig.add_subplot(grid[0, 0])
-    ax.set_xlabel(r'Pressure $P$ ($\si{MPa}$)')
-    ax.set_ylabel(r'Conductivity $\sigma$ ($\si{S/m}$)')
+    ax.set_xlabel(r'Pressure $P$ ($\mathrm{MPa}$)')
+    ax.set_ylabel(r'Conductivity $\sigma$ ($\mathrm{S/m}$)')
     ax.set_title(r'Conductivity vs Pressure' + date)
     # ax.set_xscale('log')
     # ax.set_yscale('log')
@@ -199,7 +199,7 @@ def PlotCondvsP(sols, figSize, outFigName, xtn, add=None):
     # if Rticks is not None:
     #     AddTicksY(Rticks, lineList, ax)
 
-    # ax.legend(title=r'$\sigma_\mathrm{std}$ ($\si{S/m}$)')
+    # ax.legend(title=r'$\sigma_\mathrm{std}$ ($\mathrm{S/m}$)')
     plt.tight_layout()
     if add is None:
         addBit = ''
@@ -234,7 +234,7 @@ def PlotZfit(sols, figSize, xtn, outFigName=None, LEG_PAIRS=True):
             thisOutFigName = f'{sol.lbl_uScm}uScm_{tstr}'
         else:
             thisOutFigName = outFigName
-        ax.set_title(f'Nyquist plot for ${sol.lbl_uScm}\,\si{{{uScm}}}$ at {tstr}, $K_\mathrm{{cell}}={sol.Kcell_pm:.2f}\,\si{{m^{{-1}}}}$')
+        ax.set_title(f'Nyquist plot for ${sol.lbl_uScm}\,\mathrm{{{uScm}}}$ at {tstr}, $K_\mathrm{{cell}}={sol.Kcell_pm:.2f}\,\mathrm{{m^{{-1}}}}$')
 
         outfName = f'{thisOutFigName}Nyquist.{xtn}'
         fig.savefig(outfName, format=xtn, dpi=200)
