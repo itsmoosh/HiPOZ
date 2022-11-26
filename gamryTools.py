@@ -62,6 +62,7 @@ class Solution:
         self.f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
         self.Z_ohm = None  # Complex impedance values of Gamry sweep measurements in ohm
         self.Rcalc_ohm = None  # Fit from electrical impedance spectroscopy equivalent circuit modeling in ohm
+        self.Runc_ohm = None  # Uncertainty in fit for Rcalc in ohm
         self.sigmaStdCalc_Sm = None  # Conductivity from interpolation of standard solution bottle label in S/m
         self.Kcell_pm = None  # Cell constant K in 1/m
         self.sigma_Sm = None  # DC electrical conductivity in S/m
@@ -189,7 +190,9 @@ class Solution:
         self.circuit.fit(self.f_Hz, self.Z_ohm, global_opt=BASIN_HOPPING)
         self.Zfit_ohm = self.circuit.predict(self.f_Hz)
         self.Rcalc_ohm = self.circuit.parameters_[0]
-        log.debug(self.circuit)
+        self.Runc_ohm = self.circuit.conf_[0]
+        log.debug(f'{self.circuit}' +
+                  f'Fractional uncertainty in R: {self.Runc_ohm/self.Rcalc_ohm*100:.2f}%')
 
         return 
 
