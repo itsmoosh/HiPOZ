@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+import os
 import numpy as np
 import scipy.interpolate as sci
 from datetime import datetime as dtime
@@ -15,6 +16,9 @@ import schemdraw.elements as elm
 log = logging.getLogger('HIPPOS')
 
 gamryDTstr = r'%m/%d/%Y-%I:%M %p'
+PanDTstr = r'%m/%d/%Y %I:%M:%S %p'
+PSItoMPa = 6.89476e-3
+
 Lleads = 2
 
 def readFloat(line):
@@ -57,6 +61,7 @@ class Solution:
         self.file = None  # File from which data has been loaded
         self.circFile = None  # File to print circuit diagram to
         self.xtn = 'pdf'
+        self.ramp = None  # Pan data warming or cooling ramp direction
 
         # Outputs
         self.f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
@@ -67,18 +72,45 @@ class Solution:
         self.Kcell_pm = None  # Cell constant K in 1/m
         self.sigma_Sm = None  # DC electrical conductivity in S/m
 
-    def loadFile(self, file):
+    def loadFile(self, file, PAN=True):
         self.file = file
         with open(self.file) as f:
-            f.readline()  # Skip intro line
-            self.time = dtime.strptime(f.readline()[:-1], gamryDTstr)  # Measurement time
-            self.T_K = readFloat(f.readline())  # Temp
-            self.P_MPa = readFloat(f.readline())  # Pressure
-            self.descrip = f.readline()  # Text description
-            self.Vdrive_V = readFloat(f.readline())  # Driving voltage
-            self.fStart_Hz = readFloat(f.readline())  # Driving voltage
-            self.fStop_Hz = readFloat(f.readline())  # Driving voltage
-            self.nfSteps = int(readFloat(f.readline()))  # Number of f steps
+            if PAN:
+                f.readline()
+                f.readline()
+                self.time = dtime.strptime(f.readline()[:-2].split(':  ')[-1], PanDTstr)
+                f.readline()
+                f.readline()
+                Pstring, Tstring = f.readline()[:-1].split(os.path.sep)[-1].split('-')
+                self.P_MPa = float(Pstring.split('psi')[0]) * PSItoMPa
+                if Tstring[0] == 'U':
+                    self.ramp = 'warming'
+                    Tstring = Tstring[1:]
+                else:
+                    self.ramp = 'cooling'
+                if Tstring[0] == 'n':
+                    negC = -1
+                    Tstring = Tstring[1:]
+                else:
+                    negC = 1
+                self.T_K = float(Tstring.split('deg')[0]) * negC + 273.15
+
+                # Pan data files do not contain the following information
+                self.descrip = 'Pan ' + self.ramp  # Text description
+                self.Vdrive_V = np.nan  # Driving voltage
+                self.fStart_Hz = np.nan  # Spectrum begin frequency
+                self.fStop_Hz = np.nan  # Spectrum end frequency
+                self.nfSteps = np.size(self.f_Hz)  # Number of f steps
+            else:
+                f.readline()  # Skip intro line
+                self.time = dtime.strptime(f.readline()[:-1], gamryDTstr)  # Measurement time
+                self.T_K = readFloat(f.readline())  # Temp
+                self.P_MPa = readFloat(f.readline())  # Pressure
+                self.descrip = f.readline()  # Text description
+                self.Vdrive_V = readFloat(f.readline())  # Driving voltage
+                self.fStart_Hz = readFloat(f.readline())  # Spectrum begin frequency
+                self.fStop_Hz = readFloat(f.readline())  # Spectrum end frequency
+                self.nfSteps = int(readFloat(f.readline()))  # Number of f steps
 
         if 'DIwater' in self.descrip:
             self.comp = 'Pure H2O'
@@ -90,6 +122,11 @@ class Solution:
             self.sigmaStd_Sm = np.nan
             self.legLabel = 'Air'
             self.lbl_uScm = 1
+        elif 'Pan' in self.descrip:
+            self.comp = 'NaCl'
+            self.sigmaStd_Sm = np.nan
+            self.legLabel = self.descrip + f'{self.T_K:.0f}'
+            self.lbl_uScm = np.nan
         else:
             self.comp = 'KCl'
             if 'uScm' in self.descrip:
@@ -106,9 +143,12 @@ class Solution:
         self.color = self.cmap(np.log(self.lbl_uScm)/np.log(80000))
         self.fitColor = LightenColor(self.color, lightnessMult=0.4)
 
-        _, self.f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(self.file, skiprows=10, unpack=True)
-        self.Z_ohm = Zabs_ohm * np.exp(1j * np.deg2rad(Phi_ohm))
-
+        if PAN:
+            _, self.f_Hz, Zprime_ohm, ZdblPrime_ohm, _, _ = np.loadtxt(self.file, skiprows=7, unpack=True)
+            self.Z_ohm = Zprime_ohm + 1j*ZdblPrime_ohm
+        else:
+            _, self.f_Hz, Zabs_ohm, Phi_ohm = np.loadtxt(self.file, skiprows=10, unpack=True)
+            self.Z_ohm = Zabs_ohm * np.exp(1j * np.deg2rad(Phi_ohm))
         return
 
     def FitCircuit(self, circType=None, initial_guess=None, BASIN_HOPPING=False, Kest_pm=None, PRINT=True, circFile=None):
