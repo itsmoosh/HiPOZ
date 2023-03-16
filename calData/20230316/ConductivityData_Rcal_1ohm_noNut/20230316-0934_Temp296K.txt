@@ -2,7 +2,7 @@ IMPEDANCE MEASUREMENT
 3/16/2023-9:34 AM
 Chamber temperature (K): 296.29
 Chamber pressure (MPa): 0.02
-Description: 	Rcal_1ohm
+Description: 	Rcal_1ohm_noNut
 Driving voltage (V): 1.000E-2
 Start freq (Hz): 1.000E+6
 Stop freq (Hz): 1.000E+3
