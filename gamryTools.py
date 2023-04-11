@@ -127,6 +127,11 @@ class Solution:
             self.sigmaStd_Sm = np.nan
             self.legLabel = self.descrip + f'{self.T_K:.0f}'
             self.lbl_uScm = np.nan
+        elif 'special' in self.descrip.lower():
+            self.comp = self.descrip.split(':')[-1].split('pecial_')[-1]
+            self.sigmaStd_Sm = np.nan
+            self.legLabel = self.comp
+            self.lbl_uScm = np.nan
         else:
             self.comp = 'KCl'
             if 'uScm' in self.descrip:
