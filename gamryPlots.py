@@ -128,7 +128,7 @@ def PlotZvsf(sols, figSize, outFigName, xtn, Rticks, add=None, LEG_PAIRS=True):
     ax = fig.add_subplot(grid[0, 0])
     ax.set_xlabel(r'Frequency $f$ ($\mathrm{Hz}$)')
     ax.set_ylabel(r'Impedance $|Z|$ ($\Omega$)')
-    ax.set_title(r'Calibration solution impedance spectrum')
+    ax.set_title(r'Electrochemical impedance spectra')
     ax.set_xscale('log')
     ax.set_yscale('log')
 
@@ -242,6 +242,7 @@ def PlotZfit(sols, figSize, xtn, outFigName=None, LEG_PAIRS=True):
         plt.close()
 
     return
+
 
 def PlotSigma(allMeas, figSize, outFigName, xtn):
     colorstr = 'gbryk'

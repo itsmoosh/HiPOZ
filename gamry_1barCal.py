@@ -19,7 +19,7 @@ circType = 'CPE'  # Options are 'CPE', 'RC', and 'RC-R'. If desired, a circuit s
 initial_guess = None  # Required when circType is not in the above list. Ignored otherwise.
 cmapName = 'viridis'
 outFigName = 'GamryCal'
-figSize = (6,6)
+figSize = (6,5)
 xtn = 'pdf'
 PLOT_AIR = False  # Whether to include dry run spectra in analysis
 ADD_TICKS = False  # Whether to add ticks marking the fitted resistance/reactance values on plots
@@ -66,7 +66,11 @@ if LOW_SIG_CUTOFF:
             sol.Zfit_ohm = sol.Zfit_ohm[sol.f_Hz < 1e5]
             sol.f_Hz = sol.f_Hz[sol.f_Hz < 1e5]
 
-PlotZfit(cals, figSize, xtn, LEG_PAIRS=PAIR_DATA_W_FIT)
+for sol in cals:
+    sol.Z_ohm = sol.Z_ohm[sol.f_Hz > 1e1]
+    sol.Zfit_ohm = sol.Zfit_ohm[sol.f_Hz > 1e1]
+    sol.f_Hz = sol.f_Hz[sol.f_Hz > 1e1]
+
 
 if ADD_TICKS:
     Rtick_ohm = np.array([cal.Rcalc_ohm for cal in cals])
@@ -74,8 +78,10 @@ if ADD_TICKS:
 else:
     Rtick_ohm = None
     Ytick_mho = None
-PlotZ(cals, figSize, outFigName, xtn, Rtick_ohm, LEG_PAIRS=PAIR_DATA_W_FIT)
-PlotY(cals, figSize, outFigName, xtn, Ytick_mho, LEG_PAIRS=PAIR_DATA_W_FIT)
+
+
 PlotZvsf(cals, figSize, outFigName, xtn, Rtick_ohm, LEG_PAIRS=PAIR_DATA_W_FIT)
 PlotPhasevsf(cals, figSize, outFigName, xtn, LEG_PAIRS=PAIR_DATA_W_FIT)
-
+PlotZ(cals, figSize, outFigName, xtn, Rtick_ohm, LEG_PAIRS=PAIR_DATA_W_FIT)
+PlotY(cals, figSize, outFigName, xtn, Ytick_mho, LEG_PAIRS=PAIR_DATA_W_FIT)
+PlotZfit(cals, figSize, xtn, LEG_PAIRS=PAIR_DATA_W_FIT)
