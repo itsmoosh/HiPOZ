@@ -9,5 +9,7 @@ with conda-forge (conda install -c conda-forge pkgName)
 * schemdraw
 and with pip (pip install pkgName):
 * impedance
+* SeaFreeze
+* PlanetProfile
 
 A working TeX installation, such that Matplotlib can find it, is also required.

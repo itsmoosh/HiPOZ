@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
 # Assign logger
-log = logging.getLogger('HIPPOS')
+log = logging.getLogger('HiPOZ')
 stream = logging.StreamHandler(sys.stdout)
 stream.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
 log.setLevel(logging.DEBUG)
@@ -54,7 +54,7 @@ for d_ind,thisDate in enumerate(dates):
     calStd = CalStdFit(interpMethod='cubic')
 
     for i, file in enumerate(gamryFiles):
-        meas[i] = Solution(cmapName)
+        meas[i] = Solution(cmapName=cmapName)
         meas[i].loadFile(file, PAN=PAN_DATA)
 
         if not np.isnan(meas[i].sigmaStd_Sm):
@@ -80,7 +80,7 @@ for d_ind,thisDate in enumerate(dates):
     #         meas[i].nfSteps = int(readFloat(f.readline()))  # Number of f steps
     #
     #     if 'DIwater' in meas[i].descrip:
-    #         meas[i].comp = 'Pure H2O'
+    #         meas[i].comp = 'PureH2O'
     #         meas[i].sigmaStd_Sm = 0
     #         meas[i].legLabel = r'$\approx0$'
     #     elif 'Air' in meas[i].descrip:

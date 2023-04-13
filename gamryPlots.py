@@ -5,7 +5,7 @@ from matplotlib.gridspec import GridSpec
 import logging
 
 # Assign logger
-log = logging.getLogger('HIPPOS')
+log = logging.getLogger('HiPOZ')
 
 plt.rcParams['text.usetex'] = True
 plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}\sisetup{round-mode=places,scientific-notation=true,round-precision=2}'

@@ -11,13 +11,27 @@ import colorsys
 from impedance.models.circuits import CustomCircuit
 import schemdraw
 import schemdraw.elements as elm
+from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import Ppt2molal, Molal2ppt
+from PlanetProfile.Utilities.defineStructs import Constants
+from seafreeze import seafreeze
 
 # Assign logger
-log = logging.getLogger('HIPPOS')
+log = logging.getLogger('HiPOZ')
 
 gamryDTstr = r'%m/%d/%Y-%I:%M %p'
 PanDTstr = r'%m/%d/%Y %I:%M:%S %p'
 PSItoMPa = 6.89476e-3
+soluteOptions = ['DIwater', 'KCl', 'NaCl', 'MgSO4']  # Solutes available in PlanetProfile's Constants
+wKCl_ppt = {23:    0.0116,
+            84:    0.04038,
+            447:   0.2256,
+            2070:  1.045,
+            2764:  1.382,
+            15000: 8.759,
+            80000: 52.168}  # Concentration of KCl standards as reported on the bottles
+pptUnits = ['ppt', 'gkg', 'g/kg']  # Available options for indicating pptm units
+molalUnits = ['molal', 'molkg', 'mol/kg']  # Available options for indicating molal units
+allUnits = pptUnits + molalUnits
 
 Lleads = 2
 
@@ -41,10 +55,73 @@ def LightenColor(color, lightnessMult=0.5):
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], 1 - lightnessMult * (1 - c[1]), c[2])
 
+
+def GetSigmaFromDescrip(descrip):
+    """
+    Read Gamry file description for key terms to get conductivity standard info
+    :param descrip (string): String description from Gamry file.
+    :return sigmaStd_Sm (float): Conductivity standard label value in S/m.
+    """
+    if 'uScm' in descrip:
+        sigmaStd_Sm = float(descrip.split(':')[-1].split('uScm')[0]) / 1e4
+    elif 'mScm' in descrip:
+        sigmaStd_Sm = float(descrip.split(':')[-1].split('mScm')[0]) / 10
+    elif 'Sm' in descrip:
+        sigmaStd_Sm = float(descrip.split(':')[-1].split('Sm')[0])
+    else:
+        sigmaStd_Sm = np.nan
+    return sigmaStd_Sm
+
+
+def GetwFromDescrip(descrip, lbl_uScm=None):
+    """
+    Read Gamry file description for key terms to get concentration.
+    :param descrip (string): String description from Gamry file.
+    :param lbl_uScm (int): Conductivity label for KCl standards
+    :return comp (string): Composition of the solution.
+    :return w_ppt (float): Concentration value in ppt.
+    :return w_molal (float): Concentration value in molal.
+    """
+    soluteCompare = [comp in descrip for comp in soluteOptions]  # Boolean list of comparisons to available options
+    if np.sum(soluteCompare) > 1:
+        raise ValueError(f'Multiple solutes found in descrip: "{descrip}".')
+
+    if lbl_uScm is not None:
+        comp = 'KCl'
+        w_ppt = wKCl_ppt[lbl_uScm]
+        w_molal = Ppt2molal(w_ppt, m_gmol[comp])
+    elif any(soluteCompare):
+        if 'DIwater' in descrip:
+            comp = 'PureH2O'
+            w_ppt = 0
+            w_molal = np.nan
+        else:
+            comp = list(soluteOptions)[np.where(soluteCompare)[0][0]]
+            unitCompare = [units in descrip for units in allUnits]
+            if not any(unitCompare):
+                raise ValueError(f'Units not found in descrip "{descrip}".')
+            unit = list(allUnits)[np.where(unitCompare)[0][0]]
+            try:
+                w = float(descrip.split(':')[-1].split(unit)[0])
+            except ValueError:
+                raise ValueError('Concentration and units must appear at the beginning of descrip.')
+            if unit in pptUnits:
+                w_ppt = w + 0
+                w_molal = Ppt2molal(w_ppt, Constants.m_gmol[comp])
+            else:
+                w_molal = w + 0
+                w_ppt = Molal2ppt(w_molal, Constants.m_gmol[comp])
+    else:
+        log.warning(f'Unable to interpret descrip "{descrip}".')
+        comp, w_ppt, w_molal = (None, None, None)
+    return comp, w_ppt, w_molal
+
+
 class Solution: 
-    def __init__(self, cmapName):
-        self.comp = None  # Solute composition
-        self.w_ppt = None  # Solute mass concentration in g/kg
+    def __init__(self, comp=None, cmapName='viridis'):
+        self.comp = comp  # Solute composition
+        self.w_ppt = None  # Solute mass concentration in g solute/kg solution
+        self.w_molal = None  # Solute mass concentration in mol solute/kg solvent
         self.P_MPa = None  # Chamber pressure of measurement in MPa
         self.T_K = None  # Temperature of measurement in K
         self.Vdrive_V = None  # Driving voltage in V
@@ -62,6 +139,10 @@ class Solution:
         self.circFile = None  # File to print circuit diagram to
         self.xtn = 'pdf'
         self.ramp = None  # Pan data warming or cooling ramp direction
+        self.wMeas_ppt = None  # Final solute mass concentration in g solute/kg solution based on measured-out quantities
+        self.wMeas_molal = None  # Final solute mass concentration in mol solute/kg solvent based on measured-out quantities
+        self.Deltaw_ppt = None  # Uncertainty in solute mass concentration ppt value
+        self.Deltaw_molal = None  # Uncertainty in solute mass concentration molal value
 
         # Outputs
         self.f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
@@ -72,7 +153,7 @@ class Solution:
         self.Kcell_pm = None  # Cell constant K in 1/m
         self.sigma_Sm = None  # DC electrical conductivity in S/m
 
-    def loadFile(self, file, PAN=True):
+    def loadFile(self, file, PAN=False):
         self.file = file
         with open(self.file) as f:
             if PAN:
@@ -112,11 +193,16 @@ class Solution:
                 self.fStop_Hz = readFloat(f.readline())  # Spectrum end frequency
                 self.nfSteps = int(readFloat(f.readline()))  # Number of f steps
 
-        if 'DIwater' in self.descrip:
-            self.comp = 'Pure H2O'
-            self.sigmaStd_Sm = 0
-            self.legLabel = r'$\approx0$'
-            self.lbl_uScm = 1
+        if any([comp in self.descrip for comp in soluteOptions]):
+            self.comp, self.w_ppt, self.w_molal = GetwFromDescrip(self.descrip)
+            if 'DIwater' in self.descrip:
+                self.sigmaStd_Sm = 0
+                self.legLabel = r'$\approx0$'
+                self.lbl_uScm = 1
+            else:
+                self.sigmaStd_Sm = np.nan
+                self.legLabel = f'{self.w_ppt:.1f}\,ppt\,\\ce{{{self.comp}}}'
+                self.lbl_uScm = np.minimum(1, round(self.w_ppt))
         elif 'Air' in self.descrip:
             self.comp = 'Air'
             self.sigmaStd_Sm = np.nan
@@ -133,17 +219,10 @@ class Solution:
             self.legLabel = self.comp
             self.lbl_uScm = np.nan
         else:
-            self.comp = 'KCl'
-            if 'uScm' in self.descrip:
-                self.sigmaStd_Sm = float(self.descrip.split(':')[-1].split('uScm')[0]) / 1e4
-            elif 'mScm' in self.descrip:
-                self.sigmaStd_Sm = float(self.descrip.split(':')[-1].split('mScm')[0]) / 10
-            elif 'Sm' in self.descrip:
-                self.sigmaStd_Sm = float(self.descrip.split(':')[-1].split('Sm')[0])
-            else:
-                self.sigmaStd_Sm = np.nan
+            self.sigmaStd_Sm = self.GetSigmaFromDescrip(self.descrip)
             self.legLabel = f'{self.sigmaStd_Sm:.4f}'
             self.lbl_uScm = round(self.sigmaStd_Sm*1e4)
+            self.comp, self.w_ppt, self.w_molal = GetwFromDescrip(self.descrip, lbl_uScm=self.lbl_uScm)
 
         self.color = self.cmap(np.log(self.lbl_uScm)/np.log(80000))
         self.fitColor = LightenColor(self.color, lightnessMult=0.4)
@@ -241,6 +320,94 @@ class Solution:
 
         return 
 
+    def Recipe(self, w, units='ppt', vol_mL=500, TH2O_C=25):
+        """
+        Determine the recipe for mixing the desired concentration of solution.
+        :param w: Concentration in units of ppt (g solute per kg of solution) or molal (moles solute per kg of solvent).
+        :param units: One of the available units defined in pptUnits or molalUnits.
+        :param vol_mL: Volume of solution to mix
+        :param TH2O_C: Temperature of DI water to use in Celsius
+        :return mSolute_g: Mass of solute to mix in grams
+        :return volOut_mL: Volume of DI water to mix in milliliters
+        """
+        failMsg = 'unable to continue with Recipe.'
+
+        # Make sure we can do calculations for the set composition
+        if self.comp is None:
+            log.warning(f'Composition is unset, {failMsg}')
+            return
+        elif not self.comp in Constants.m_gmol.keys():
+            log.warning(f'Composition "{self.comp}" not yet covered in PlanetProfile Constants.m_gmol dict, {failMsg}')
+            return
+
+        # Make sure all the fields we need are set
+        if units not in allUnits:
+            log.warning(f'Units "{units}" not recognized, {failMsg}')
+            return
+
+        if self.w_ppt is None and self.w_molal is None:
+            if units in pptUnits:
+                self.w_ppt = w
+            elif units in molalUnits:
+                self.w_molal = w
+            else:
+                log.warning(f'Concentration is unset (Solution.w_ppt or Solution.w_molal), {failMsg}')
+                return
+
+        # Set either missing w field
+        if self.w_molal is None:
+            self.w_molal = Ppt2molal(self.w_ppt, Constants.m_gmol[self.comp])
+            log.debug('Added w_molal to Solution.')
+        elif self.w_ppt is None:
+            self.w_ppt = Molal2ppt(self.w_molal, Constants.m_gmol[self.comp])
+            log.debug('Added w_ppt to Solution.')
+
+        rhoH2O_kgm3 = seafreeze(np.array(tuple((Constants.P0, TH2O_C+Constants.T0))), 'water1').rho[0,0]
+        mH2O_kg = rhoH2O_kgm3/1e3 * vol_mL/1e3
+        mSolute_g = self.w_molal * mH2O_kg * Constants.m_gmol[self.comp]
+        volOut_mL = vol_mL + 0
+
+        return mSolute_g, volOut_mL
+
+    def CalcConc(self, mSolute_g, Vbeaker_mL, Vtotal_mL, DeltamSolute_g=0.001, DeltaVbeaker_mL=10, TH2O_C=25):
+        """
+        Calculate actual concentration of solute based on measured-out amounts, with uncertainty.
+        :param mSolute_g: Mass of solute in grams.
+        :param Vbeaker_mL: Volume of beaker used to measure out the desired amount of water in milliliters.
+        :param Vtotal_mL: Total measured-out amount of water in milliliters.
+        :param DeltamSolute_g: Uncertainty in solute mass in g. Typically 0.001 g based on available weighing scale.
+        :param DeltaVbeaker_mL: Uncertainty in measured volume of beaker used to measure out desired amount of water, in milliliters.
+        :param TH2O_C: Temperature of DI water in Celsius
+        :return wMeas_ppt: Measured mass concentration in g solute/kg solution.
+        :return wMeas_molal: Measured mass concentration in mol solute/kg solvent.
+        :return Deltaw_ppt: Uncertainty in measured mass concentration in g solute/kg solution.
+        :return Deltaw_molal: Uncertainty in measured mass concentration in mol solute/kg solvent.
+        """
+        # Get water density and approximate uncertainty based on assuming +/- 1 K uncertainty in tap water temp
+        rhoH2O_kgm3 = seafreeze(np.array(tuple((Constants.P0, TH2O_C + Constants.T0))), 'water1').rho[0,0]
+        DeltarhoH2O_kgm3 = abs(seafreeze(np.array(tuple((Constants.P0, TH2O_C+Constants.T0-1))), 'water1').rho[0,0]
+                               - seafreeze(np.array(tuple((Constants.P0, TH2O_C+Constants.T0+1))), 'water1').rho[0,0])/2
+        # Calculate fractional uncertainties
+        eps_mSolute = DeltamSolute_g/mSolute_g
+        eps_Vtotal = (DeltaVbeaker_mL * np.sqrt(Vtotal_mL/Vbeaker_mL)) / Vtotal_mL
+        eps_rhoH2O = DeltarhoH2O_kgm3/rhoH2O_kgm3
+
+        mH2O_kg = rhoH2O_kgm3 * Vtotal_mL/1e6
+        eps_mH2O = np.sqrt(eps_rhoH2O**2 + eps_Vtotal**2)
+        molSolute = mSolute_g / Constants.m_gmol[self.comp]
+        eps_molSolute = eps_mSolute  # Assume much higher precision in molecular weight
+        wMeas_molal = molSolute / mH2O_kg
+        Deltaw_molal = wMeas_molal * np.sqrt(eps_molSolute**2 + eps_mH2O**2)
+        Deltaw_molal = float(f'{Deltaw_molal:.2e}')  # Truncate to 2 sig figs in precision
+        mSolute_kg = mSolute_g/1e3
+        mTotal_kg = mH2O_kg + mSolute_kg
+        eps_mTotal = np.sqrt((mH2O_kg*eps_mH2O)**2 + (mSolute_kg*eps_mSolute)**2) / mTotal_kg
+        wMeas_ppt = mSolute_g / mTotal_kg
+        Deltaw_ppt = wMeas_ppt * np.sqrt(eps_mSolute**2 + eps_mTotal**2)
+        Deltaw_ppt = float(f'{Deltaw_ppt:.2e}')  # Truncate to 2 sig figs in precision
+
+        return wMeas_ppt, Deltaw_ppt, wMeas_molal, Deltaw_molal
+
 
 class expFit:
     def __init__(self, sigma0_Sm, lambd):
@@ -282,3 +449,5 @@ class CalStdFit:
         else:
             sigma_Sm = float(self.sigmaCalc_Sm[lbl_uScm](T_K))
         return sigma_Sm
+
+
