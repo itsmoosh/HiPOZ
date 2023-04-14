@@ -2,7 +2,7 @@ IMPEDANCE MEASUREMENT
 4/12/2023-3:12 PM
 Chamber temperature (K): 278.28
 Chamber pressure (MPa): -0.85
-Description: 	1e-4_NaCl_outsideChiller
+Description: 	1e-4molal_NaCl_outsideChiller
 Driving voltage (V): 1.000E-2
 Start freq (Hz): 1.000E+6
 Stop freq (Hz): 1.000E+3
