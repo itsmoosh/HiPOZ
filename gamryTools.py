@@ -13,7 +13,7 @@ import schemdraw
 import schemdraw.elements as elm
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import Ppt2molal, Molal2ppt
 from PlanetProfile.Utilities.defineStructs import Constants
-from seafreeze import seafreeze
+from seafreeze.seafreeze import seafreeze
 
 # Assign logger
 log = logging.getLogger('HiPOZ')
