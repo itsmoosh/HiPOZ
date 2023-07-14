@@ -408,62 +408,6 @@ class Solution:
 
         return wMeas_ppt, Deltaw_ppt, wMeas_molal, Deltaw_molal
 
-import numpy as np
-
-import datetime
-
-class Resistor:
-    def __init__(self, cmapName=None):
-        self.impedance_real = []
-        self.impedance_imag = []
-        self.frequency = []
-        self.timestamp = []
-        self.numPoints = 0
-        self.cmapName = cmapName
-        self.f_Hz = []
-        self.Z_ohm = []
-        self.legLabel = ""
-        self.color = ""  # New attribute to store the color for the resistor
-        self.fitCoeffs = None  # New attribute to store the fitting coefficients
-        self.time = None  # New attribute to store the time
-        self.Zfit_ohm = []
-        self.fitColor = None  # Initialize fitColor as None
-        self.lbl_uScm = None  # Add lbl_uScm attribute
-
-    def addPoint(self, impedance_real, impedance_imag, timestamp, color):
-        self.impedance_real.append(float(impedance_real))
-        self.impedance_imag.append(float(impedance_imag))
-        self.timestamp.append(timestamp)
-        self.f_Hz.append(float(impedance_real))
-        self.Z_ohm.append(complex(float(impedance_real), float(impedance_imag)))
-        self.numPoints += 1
-        self.color = color
-        self.time = datetime.datetime.now()  # Set the current time
-
-    def isValid(self):
-        return len(self.impedance_real) > 0 and len(self.impedance_imag) > 0
-
-    def calculateSigma(self):
-        # Perform conductivity calculation here
-        self.sigma = np.mean(self.impedance_real)  # Placeholder calculation
-
-    def fitImpedanceVsf(self):
-        # Perform impedance fitting here
-        # Example using np.polyfit for linear fit
-        degree = 2  # Degree of the polynomial fit
-        coeffs = np.polyfit(self.impedance_real, self.impedance_imag, degree)
-        self.fitCoeffs = coeffs
-
-        # Evaluate the fitted impedance
-        self.Zfit_ohm = np.polyval(coeffs, self.impedance_real)
-        self.Zfit_ohm = np.polyval(coeffs, self.frequency)
-
-
-
-        # Set the fit color
-        self.fitColor = 'red'  # Modify the color value as desired
-
-
 class expFit:
     def __init__(self, sigma0_Sm, lambd):
         self.sigma0_Sm = sigma0_Sm
