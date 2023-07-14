@@ -8,7 +8,7 @@ import logging
 log = logging.getLogger('HiPOZ')
 
 plt.rcParams['text.usetex'] = True
-plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}\sisetup{round-mode=places,scientific-notation=true,round-precision=2}'
+plt.rcParams['text.latex.preamble'] = r'\usepackage{stix}\usepackage{siunitx}\usepackage{upgreek}\usepackage[version=4]{mhchem}\sisetup{round-mode=places,scientific-notation=true,round-precision=2}'
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'STIXGeneral'
 PLOT_AIR = False
