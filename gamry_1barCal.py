@@ -3,7 +3,6 @@ import os, sys
 import numpy as np
 from glob import glob
 import logging
-from datetime import datetime as dtime
 from gamryTools import Solution, CalStdFit
 from gamryPlots import PlotY, PlotZ, PlotZvsf, PlotPhasevsf, PlotZfit
 
@@ -40,8 +39,8 @@ f"""Actual concentration and uncertainty:
     wMeas (molal): {Sol.wMeas_molal:{fmtw_molal}} +/- {Sol.Deltaw_molal:{fmtw_molal}}
 """)
 
-date = '20230411'
-circType = 'CPE'  # Options are 'CPE', 'RC', and 'RC-R'. If desired, a circuit string can be entered here instead.
+date = '20221123'
+circType = 'RC'  # Options are 'CPE', 'RC', and 'RC-R'. If desired, a circuit string can be entered here instead.
 initial_guess = None  # Required when circType is not in the above list. Ignored otherwise.
 cmapName = 'viridis'
 outFigName = 'GamryCal'
@@ -81,9 +80,9 @@ listStandards = np.array([cal.sigmaStd_Sm for cal in cals])
 iSort = np.argsort(listStandards)
 cals = cals[iSort]
 
-#Tcal_C = np.array([22.8, 22.3, 21.7, 21.5, 23.215, 21.8, 21.9])
-#sigmaStdBottle_Sm = np.array([calStd(Tcal_C + 273.15)])
-#sigmaStdlist_Sm = np.array([sol.sigmaStd_Sm for sol in cals])  # value on each bottle at 25 deg C, not using fits for temp dependence
+# Tcal_C = np.array([22.8, 22.3, 21.7, 21.5, 23.215, 21.8, 21.9])
+# sigmaStdBottle_Sm = np.array([calStd(Tcal_C + 273.15)])
+# sigmaStdlist_Sm = np.array([sol.sigmaStd_Sm for sol in cals])  # value on each bottle at 25 deg C, not using fits for temp dependence
 
 if LOW_SIG_CUTOFF:
     for sol in cals:

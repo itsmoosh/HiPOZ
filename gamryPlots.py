@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import logging
+from gamryTools import ResistorData
+
 
 # Assign logger
 log = logging.getLogger('HiPOZ')
@@ -215,31 +217,43 @@ def PlotCondvsP(sols, figSize, outFigName, xtn, add=None):
 
 def PlotZfit(sols, figSize, xtn, outFigName=None, LEG_PAIRS=True):
     for sol in sols:
-        fig = plt.figure(figsize=figSize)
-        grid = GridSpec(1, 1)
-        ax = fig.add_subplot(grid[0, 0])
-        ax.grid()
-        ax.set_axisbelow(True)
-        ax.set_xlabel('Re($Z$)')
-        ax.set_ylabel('$-$Im($Z$)')
-        ax.scatter(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), marker=MS_data, label=f'{sol.legLabel} data', color=sol.color)
-        ax.plot(np.real(sol.Zfit_ohm), -np.imag(sol.Zfit_ohm), ls=LS_fit, label=f'{sol.legLabel} fit', color=sol.fitColor)
-        ax.set_xlim(left=0)
+        if isinstance(sol, ResistorData):
+            # This is a resistor data, plot data and fit if available
+            fig = plt.figure(figsize=figSize)
+            grid = GridSpec(1, 1)
+            ax = fig.add_subplot(grid[0, 0])
+            ax.grid()
+            ax.set_axisbelow(True)
+            ax.set_xlabel('Re($Z$)')
+            ax.set_ylabel('$-$Im($Z$)')
 
-        allHandles, allLabels = ax.get_legend_handles_labels()
-        handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
-        ax.legend(handles, labels)
-        tstr = sol.time.strftime(tfmt)
-        if outFigName is None:
-            thisOutFigName = f'{sol.lbl_uScm}uScm_{tstr}'
-        else:
-            thisOutFigName = outFigName
-        ax.set_title(f'Nyquist plot for ${sol.lbl_uScm}\,\mathrm{{{uScm}}}$ at {tstr}, $K_\mathrm{{cell}}={sol.Kcell_pm:.2f}\,\mathrm{{m^{{-1}}}}$')
+            if sol.f_Hz is not None and len(sol.f_Hz) > 0:
+                ax.scatter(np.real(sol.Z_ohm), -np.imag(sol.Z_ohm), marker=MS_data, label=f'{sol.legLabel} data',
+                           color=sol.color)
+            if sol.Zfit_ohm is not None and len(sol.Zfit_ohm) > 0:
+                ax.plot(np.real(sol.Zfit_ohm), -np.imag(sol.Zfit_ohm), ls=LS_fit, label=f'{sol.legLabel} fit',
+                        color=sol.fitColor)
 
-        outfName = f'{thisOutFigName}Nyquist.{xtn}'
-        fig.savefig(outfName, format=xtn, dpi=200)
-        log.info(f'Nyquist plot saved to file: {outfName}')
-        plt.close()
+            ax.set_xlim(left=0)
+
+            allHandles, allLabels = ax.get_legend_handles_labels()
+            handles, labels = GetUnique(allHandles, allLabels, PAIRED=LEG_PAIRS)
+            ax.legend(handles, labels)
+
+            if outFigName is not None:
+                tstr = sol.time.strftime(tfmt)  # temporary comment out CP for resistor testing
+                thisOutFigName = f'{sol.lbl_uScm}uScm_{tstr}'
+                ax.set_title(
+                    f'Nyquist plot for ${sol.lbl_uScm}\,\mathrm{{\mu S/cm}}$ at {tstr}, $K_\mathrm{{cell}}={sol.Kcell_pm:.2f}\,\mathrm{{m^{{-1}}}}$')
+
+                outfName = f'{thisOutFigName}Nyquist.{xtn}'
+                fig.savefig(outfName, format=xtn, dpi=200)
+                log.info(f'Nyquist plot saved to file: {outfName}')
+                plt.close()
+
+        elif isinstance(sol, Solution):
+            # This is a solution data, do not plot Nyquist plot for it
+            pass
 
     return
 

@@ -407,6 +407,183 @@ class Solution:
         Deltaw_ppt = float(f'{Deltaw_ppt:.2e}')  # Truncate to 2 sig figs in precision
 
         return wMeas_ppt, Deltaw_ppt, wMeas_molal, Deltaw_molal
+class ResistorData:
+    def __init__(self, comp=None, cmapName='viridis'):
+
+        self.P_MPa = None  # Chamber pressure of measurement in MPa
+        self.T_K = None  # Temperature of measurement in K
+        self.Vdrive_V = None  # Driving voltage in V
+        self.fStart_Hz = None  # Start frequency in Hz
+        self.fStop_Hz = None  # Stop frequency in Hz
+        self.nfSteps = None  # Number of frequency steps
+        self.time = None  # Measurement start time
+        self.descrip = None  # Text description (as applicable)
+        self.legLabel = None  # Legend label
+        self.color = None  # Color of lines
+        self.cmap = get_cmap(cmapName)
+        self.file = None  # File from which data has been loaded
+        self.circFile = None  # File to print circuit diagram to
+        self.xtn = 'pdf'
+        # self.frequency = None
+        # self.impedance = None
+        # self.phase = None
+
+    # Outputs
+        # Initialize as empty lists
+        self.f_Hz = []  # Frequency values of Gamry sweep measurements in Hz
+        self.Z_ohm = []  # Complex impedance values of Gamry sweep measurements in ohm
+        self.phase = []  # Phase values of Gamry sweep measurements in degrees
+        # self.f_Hz = None  # Frequency values of Gamry sweep measurements in Hz
+        # self.Z_ohm = None  # Complex impedance values of Gamry sweep measurements in ohm
+        self.Rcalc_ohm = None  # Fit from electrical impedance spectroscopy equivalent circuit modeling in ohm
+        self.Runc_ohm = None  # Uncertainty in fit for Rcalc in ohm
+
+    def convert_to_numpy(self):
+        self.f_Hz = np.array(self.f_Hz)
+        magnitude = np.array(self.Z_ohm)
+        phase_rad = np.radians(np.array(self.phase))
+        self.Z_ohm = magnitude * np.exp(1j * phase_rad)
+
+    def loadFile(self, filename, all_files):
+        resistor_data = self  # Create an instance of the class
+
+        # Read data from the file
+        with open(filename, 'r') as file:
+            lines = file.readlines()
+
+            # Extract relevant data starting from line 11 (skip the first 10 lines with non-data content)
+            for line in lines[10:]:
+                # Split the line by spaces and extract data fields
+                fields = line.strip().split()
+                frequency = float(fields[1])
+                impedance = float(fields[2])
+                phase = float(fields[3])
+
+                # Add data to the impedance_data list
+                resistor_data.f_Hz.append(frequency)
+                resistor_data.Z_ohm.append(impedance)
+                resistor_data.phase.append(phase)
+
+                # Debug print statements
+                print("Frequency (Hz):", frequency)
+                print("Impedance (ohm):", impedance)
+                print("Phase (degrees):", phase)
+
+        # Convert the lists to NumPy arrays
+        resistor_data.f_Hz = np.array(resistor_data.f_Hz)
+        resistor_data.Z_ohm = np.array(resistor_data.Z_ohm)
+        resistor_data.phase = np.array(resistor_data.phase)
+
+        # Check if impedance data is not empty
+        if len(resistor_data.f_Hz) == 0 or len(resistor_data.Z_ohm) == 0:
+            raise ValueError('Impedance data is empty. Please load valid data.')
+
+        # Calculate the color index based on some property (here, it's the length of f_Hz array)
+        color_index = len(resistor_data.f_Hz)
+
+        # Set the fit color using the cmap defined in the class constructor
+        resistor_data.fitColor = resistor_data.cmap(color_index / len(all_files))
+
+        return resistor_data
+    def FitCircuit(self, circType=None, initial_guess=None, BASIN_HOPPING=False, Kest_pm=None, PRINT=True,
+                   circFile=None):
+
+        if Kest_pm is None:
+            Kest_pm = 50
+        if circType is None:
+            circType = 'CPE'
+        if circFile is None:
+            self.circFile = f'{circType}circuit.{self.xtn}'
+        else:
+            self.circFile = circFile
+        if circType == 'CPE':
+            # Z_cell = R_0 + (R_0 + Z_CPE)/(1 + i*omega*C*(R_1 + Z_CPE)) -- Chin et al. (2018): https://doi.org/10.1063/1.5020076
+#            initial_guess = [Kest_pm / self.sigmaStdCalc_Sm, 8e-7, 0.85, 146.2e-12, 50]
+            initial_guess = [0.01,  8e-7, 0.85, 146.2e-12, 50] #CP for resistor testing
+            R0 = r'R_0'
+            R1 = r'R_1'
+            CPE1 = r'CPE_1'
+            C1 = r'C_1'
+            circStr = f'p({R1}-{CPE1},{C1})-{R0}'
+            if PRINT:
+                with schemdraw.Drawing(file=self.circFile, show=False) as circ:
+                    circ.config(unit=Lleads)
+                    circ += elm.Resistor().label(f'${R0}$').dot()
+                    circ += (j1 := elm.Line().length(circ.unit / 2).up())
+                    circ += elm.Line().at(j1.start).length(circ.unit / 2).down()
+                    circ += elm.Resistor().right().label(f'${R1}$')
+                    circ += elm.CPE().label(f'$Z_\mathrm{{{CPE1[:-2]}}}$')
+                    circ += elm.Line().length(circ.unit / 2).up().dot()
+                    circ += (j2 := elm.Line().length(circ.unit / 2).up())
+                    circ += elm.Capacitor().endpoints(j1.end, j2.end).label(f'${C1}$').right()
+                    circ += elm.Line().at(j2.start).length(circ.unit / 2).right()
+                log.info(f'Equivalent circuit diagram saved to file: {self.circFile}')
+        elif circType == 'RC':
+            # 1/Z_cell = 1/R + i*omega*C -- Pan et al. (2021): https://doi.org/10.1029/2021GL094020
+            # initial_guess = [Kest_pm / self.sigmaStdCalc_Sm, 146.2e-12]
+            initial_guess = [1, 146.2e-12]
+            R1 = r'R_1'
+            C1 = r'C_1'
+            circStr = f'p({R1},{C1})'
+            if PRINT:
+                with schemdraw.Drawing(file=self.circFile, show=False) as circ:
+                    circ.config(unit=Lleads)
+                    circ += elm.Line().length(circ.unit / 2).dot()
+                    circ += (j1 := elm.Line().length(circ.unit / 2).up())
+                    circ += elm.Line().at(j1.start).length(circ.unit / 2).down()
+                    circ += elm.Resistor().right().label(f'${R1}$')
+                    circ += elm.Line().length(circ.unit / 2).up().dot()
+                    circ += (j2 := elm.Line().length(circ.unit / 2).up())
+                    circ += elm.Capacitor().endpoints(j1.end, j2.end).label(f'${C1}$').right()
+                    circ += elm.Line().at(j2.start).length(circ.unit / 2).right()
+                log.info(f'Equivalent circuit diagram saved to file: {self.circFile}')
+        elif circType == 'RC-R':
+#            initial_guess = [Kest_pm / self.sigmaStdCalc_Sm, 146.2e-12, 50]
+            initial_guess = [100, 146.2e-12, 50] #cp resistors
+            R0 = r'R_0'
+            R1 = r'R_1'
+            C1 = r'C_1'
+            circStr = f'p({R1},{C1})-{R0}'
+            if PRINT:
+                with schemdraw.Drawing(file=self.circFile, show=False) as circ:
+                    circ.config(unit=Lleads)
+                    circ += elm.Resistor().label(f'${R0}$').dot()
+                    circ += (j1 := elm.Line().length(circ.unit / 2).up())
+                    circ += elm.Line().at(j1.start).length(circ.unit / 2).down()
+                    circ += elm.Resistor().right().label(f'${R1}$')
+                    circ += elm.Line().length(circ.unit / 2).up().dot()
+                    circ += (j2 := elm.Line().length(circ.unit / 2).up())
+                    circ += elm.Capacitor().endpoints(j1.end, j2.end).label(f'${C1}$').right()
+                    circ += elm.Line().at(j2.start).length(circ.unit / 2).right()
+                log.info(f'Equivalent circuit diagram saved to file: {self.circFile}')
+        else:
+            if initial_guess is None:
+                raise ValueError(f'circuit type "{circType}" not recognized.')
+            else:
+                log.info(f'circuit type "{circType}" not recognized. Interpreting as circuit string.')
+                circStr = circType
+
+        log.debug(f'Fitting {circType} circuit to input file {self.file}')
+        log.debug(f'Frequency (Hz) for fitting: {self.f_Hz}') #cp
+        log.debug(f'Impedance (ohm) for fitting: {self.Z_ohm}') #cp
+
+        # Convert impedance data to NumPy arrays if not done already
+        self.convert_to_numpy()
+
+        # Check if impedance data is not empty (CP)
+        if len(self.f_Hz) == 0 or len(self.Z_ohm) == 0:
+            raise ValueError('Impedance data is empty. Please load valid data before fitting.')
+
+        self.circuit = CustomCircuit(circStr, initial_guess=initial_guess)
+        self.circuit.fit(self.f_Hz, self.Z_ohm, global_opt=BASIN_HOPPING)
+        self.Zfit_ohm = self.circuit.predict(self.f_Hz)
+        self.Rcalc_ohm = self.circuit.parameters_[0]
+        self.Runc_ohm = self.circuit.conf_[0]
+        log.debug(f'{self.circuit}' +
+                  f'Fractional uncertainty in R: {self.Runc_ohm / self.Rcalc_ohm * 100:.2f}%')
+
+        return
+
 
 class expFit:
     def __init__(self, sigma0_Sm, lambd):
