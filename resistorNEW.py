@@ -16,7 +16,7 @@ log.addHandler(stream)
 
 R_nominal_ohm = 1000  # Nominal resistance value of the resistors
 
-date = '20230711'
+date = '20230720'
 circType = 'RC'  # Options are 'CPE', 'RC', and 'RC-R'. If desired, a circuit string can be entered here instead.
 initial_guess = None  # Required when circType is not in the above list. Ignored otherwise.
 cmapName = 'viridis'
