@@ -12,13 +12,17 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
 # Assign logger
-log = logging.getLogger('HIPPOS')
+log = logging.getLogger('HiPOZ')
 stream = logging.StreamHandler(sys.stdout)
 stream.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
 log.setLevel(logging.DEBUG)
 log.addHandler(stream)
 
-dates = ['20220922','20220923','20220924','20221010','20221011']
+PAN_DATA = True
+if PAN_DATA:
+    dates = ['nan']
+else:
+    dates = ['20220922','20220923','20220924','20221010','20221011','20230223']
 # dates = ['20221016']; # values read at 5e-4S/m
 # dates = ['20221014']; # using the 1bar std yield around 5 S/m not 8. THere's a zero conductivity point at high pressure
 # dates = ['20221010','20221011']
@@ -37,22 +41,27 @@ add = None
 nDates = np.size(dates)
 allMeas = np.empty(nDates,dtype=object)
 for d_ind,thisDate in enumerate(dates):
-    fList = glob(os.path.join('calData', thisDate,thisDate+'*.txt'))
-    gamryFiles = [f for f in fList if re.search(thisDate+'-'+'[0-9][0-9][0-9][0-9]_', f)]
+    if PAN_DATA:
+        fList = glob(os.path.join('Pan_data', '*.dat'))
+        # gamryFiles = [f.split('\\')[-1] for f in fList]
+        gamryFiles = fList
+    else:
+        fList = glob(os.path.join('calData', thisDate, thisDate + '*.txt'))
+        gamryFiles = [f for f in fList if re.search(thisDate+'-'+'[0-9][0-9][0-9][0-9]_', f)]
 
     nSweeps = np.size(gamryFiles)
     meas = np.empty(nSweeps, dtype=object)
     calStd = CalStdFit(interpMethod='cubic')
 
     for i, file in enumerate(gamryFiles):
-        meas[i] = Solution(cmapName)
-        meas[i].loadFile(file)
+        meas[i] = Solution(cmapName=cmapName)
+        meas[i].loadFile(file, PAN=PAN_DATA)
 
         if not np.isnan(meas[i].sigmaStd_Sm):
             meas[i].sigmaStdCalc_Sm = calStd(meas[i].T_K, lbl_uScm=meas[i].lbl_uScm)
         else:
             meas[i].sigmaStdCalc_Sm = 1e-8  # Default air conductivity
-        meas[i].FitCircuit(circType=circType, initial_guess=initial_guess)
+        meas[i].FitCircuit(circType=circType, initial_guess=initial_guess, PRINT=True)
         meas[i].Kcell_pm = meas[i].sigmaStdCalc_Sm * meas[i].Rcalc_ohm
 
         if not PLOT_AIR and meas[i].comp == 'Air':
@@ -71,7 +80,7 @@ for d_ind,thisDate in enumerate(dates):
     #         meas[i].nfSteps = int(readFloat(f.readline()))  # Number of f steps
     #
     #     if 'DIwater' in meas[i].descrip:
-    #         meas[i].comp = 'Pure H2O'
+    #         meas[i].comp = 'PureH2O'
     #         meas[i].sigmaStd_Sm = 0
     #         meas[i].legLabel = r'$\approx0$'
     #     elif 'Air' in meas[i].descrip:

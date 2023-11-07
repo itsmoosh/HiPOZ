@@ -1,0 +1,10 @@
+IMPEDANCE MEASUREMENT 
+3/21/2023-3:09 PM
+Chamber temperature (K): 296.56
+Chamber pressure (MPa): -0.15
+Description: 	RcalChiller_1000000ohm
+Driving voltage (V): 1.000E-2
+Start freq (Hz): 1.000E+6
+Stop freq (Hz): 1.000E+1
+# freq steps: 60
+Index #	Frequency (Hz)	Impedance (ohm)	Phase (degrees)
