@@ -39,7 +39,7 @@ f"""Actual concentration and uncertainty:
     wMeas (molal): {Sol.wMeas_molal:{fmtw_molal}} +/- {Sol.Deltaw_molal:{fmtw_molal}}
 """)
 
-date = '20221123'
+date = '20230424'
 circType = 'RC'  # Options are 'CPE', 'RC', and 'RC-R'. If desired, a circuit string can be entered here instead.
 initial_guess = None  # Required when circType is not in the above list. Ignored otherwise.
 cmapName = 'viridis'
