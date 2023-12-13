@@ -221,8 +221,9 @@ class Solution:
         else:
             self.sigmaStd_Sm = self.GetSigmaFromDescrip(self.descrip)
             self.legLabel = f'{self.sigmaStd_Sm:.4f}'
-            self.lbl_uScm = round(self.sigmaStd_Sm*1e4)
+            self.lbl_uScm = np.round(self.sigmaStd_Sm*1e4)
             self.comp, self.w_ppt, self.w_molal = GetwFromDescrip(self.descrip, lbl_uScm=self.lbl_uScm)
+>>>>>>> refs/remotes/origin/main
 
         self.color = self.cmap(np.log(self.lbl_uScm)/np.log(80000))
         self.fitColor = LightenColor(self.color, lightnessMult=0.4)
