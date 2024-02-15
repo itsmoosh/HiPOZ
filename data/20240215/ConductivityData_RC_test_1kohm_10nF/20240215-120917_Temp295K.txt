@@ -1,0 +1,10 @@
+IMPEDANCE MEASUREMENT 
+2/15/2024-12:09 PM
+Chamber temperature (K): 294.86
+Chamber pressure (MPa): 20000.63
+Description: 	RC_test_1kohm_10nF
+Driving voltage (V): 1.000E-2
+Start freq (Hz): 1.000E+6
+Stop freq (Hz): 1.000E+2
+# freq steps: 60
+Index #	Frequency (Hz)	Impedance (ohm)	Phase (degrees)
