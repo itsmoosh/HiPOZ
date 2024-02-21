@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 # Read the Excel file
-df = pd.read_excel('NaClCondDataDefCompare.xlsx', sheet_name='CondVsConc')
+df = pd.read_excel('CP_NaClCondDataDefCompare.xlsx', sheet_name='CondVsConc')
 
 # Group the data by source
 grouped_data = df.groupby('Source')

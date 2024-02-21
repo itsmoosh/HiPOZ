@@ -3,8 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import logging
-from gamryTools import ResistorData
-
+from gamryTools import ResistorData, Solution
 
 # Assign logger
 log = logging.getLogger('HiPOZ')
