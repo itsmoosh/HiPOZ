@@ -36,6 +36,10 @@ RC_circuit = f'p({R1},{C1})'
 # RC_initial_guess = [Kest_pm/sigmaStdCalc_Sm, 146.2e-12]
 RC_initial_guess = [1e3, 10e-9]
 
+# R0-R1C1 (RCR) circuit
+
+# R0-R1C1-R2C2 circuit
+
 
 # fit the CustomCircuit to the data
 circuit = CustomCircuit(RC_circuit, initial_guess=RC_initial_guess)
