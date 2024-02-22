@@ -1,0 +1,10 @@
+IMPEDANCE MEASUREMENT 
+2/21/2024-12:47 PM
+Chamber temperature (K): 295.96
+Chamber pressure (MPa): 20366.08
+Description: 	2molkgNaCl-285K
+Driving voltage (V): 1.000E-2
+Start freq (Hz): 1.000E+6
+Stop freq (Hz): 1.000E+2
+# freq steps: 60
+Index #	Frequency (Hz)	Impedance (ohm)	Phase (degrees)
