@@ -9,10 +9,10 @@ import numpy as np
 # frequencies, Z = preprocessing.readCSV('./data/2023091/ConductivityData_80mSKCltest/20230921-105603_Temp294K.txt')
 
 # Define the file path for NaCl saturated
-NaCl_file_path = '/Users/cal2019/Dropbox/ResearchVoyage/Models_code/HiPOZ/data/20231214/ConductivityData_NaCl_4mol_kg/20231214-154247_Temp294K.txt'
+NaCl_file_path = 'data/20231214/ConductivityData_NaCl_4mol_kg/20231214-154247_Temp294K.txt'
 
 # Define the file path for KCl standard
-KCl_file_path = '/Users/cal2019/Dropbox/ResearchVoyage/Models_code/HiPOZ/data/20231214/ConductivityData_KClStd_23us_cm/20231214-104516_Temp293K.txt'
+KCl_file_path = 'data/20231214/ConductivityData_KClStd_23us_cm/20231214-104516_Temp293K.txt'
 
 
 # Read the data into a pandas DataFrame, skip the header lines, and specify the delimiter
@@ -115,19 +115,10 @@ print(randles_fit)
 print(customCircuit_fit)
 
 fig, ax = plt.subplots(figsize=(5, 5))
-
-
 randles_circuit.plot(ax=ax)
-
 circuit.plot(f_data=frequencies, Z_data=Z, kind='nyquist', ax=ax)
 
 
 
 ax.legend(['Data', 'Randles', 'Custom Circuit'])
 plt.show()
-
-
-
-
-
-
