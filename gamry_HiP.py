@@ -11,6 +11,19 @@ from matplotlib.cm import get_cmap
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
+# import sys
+# from PyQt5.QtWidgets import QApplication
+# from FileSelector import FileSelector
+#
+# app = QApplication(sys.argv)  # Create an application if one doesn't exist
+# ex = FileSelector()
+# ex.show()
+# app.exec_()  # Start the event loop
+
+# After the window is closed, you can access the selected files
+# calibration_files = ex.calibration_files
+# data_files = ex.data_files
+
 # Assign logger
 log = logging.getLogger('HiPOZ')
 stream = logging.StreamHandler(sys.stdout)
@@ -18,11 +31,12 @@ stream.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
 log.setLevel(logging.DEBUG)
 log.addHandler(stream)
 
-PAN_DATA = True
+PAN_DATA = False
 if PAN_DATA:
     dates = ['nan']
 else:
-    dates = ['20220922','20220923','20220924','20221010','20221011','20230223']
+    # dates = ['20220922','20220923','20220924','20221010','20221011','20230223']
+    dates = ['20231214'] # values read at 5e-4S/m
 # dates = ['20221016']; # values read at 5e-4S/m
 # dates = ['20221014']; # using the 1bar std yield around 5 S/m not 8. THere's a zero conductivity point at high pressure
 # dates = ['20221010','20221011']
@@ -41,28 +55,26 @@ add = None
 nDates = np.size(dates)
 allMeas = np.empty(nDates,dtype=object)
 for d_ind,thisDate in enumerate(dates):
-    if PAN_DATA:
-        fList = glob(os.path.join('Pan_data', '*.dat'))
-        # gamryFiles = [f.split('\\')[-1] for f in fList]
-        gamryFiles = fList
-    else:
-        fList = glob(os.path.join('calData', thisDate, thisDate + '*.txt'))
-        gamryFiles = [f for f in fList if re.search(thisDate+'-'+'[0-9][0-9][0-9][0-9]_', f)]
-
+    pathHead = os.path.join(os.path.join('data', thisDate))
+    gamryFiles = glob(os.path.join(pathHead, 'Conductivity*', '*.txt'))
+    # gamryFiles = [f for f in fList if re.search(thisDate+'-'+'[0-9][0-9][0-9][0-9]_', f)]
     nSweeps = np.size(gamryFiles)
     meas = np.empty(nSweeps, dtype=object)
     calStd = CalStdFit(interpMethod='cubic')
 
     for i, file in enumerate(gamryFiles):
         meas[i] = Solution(cmapName=cmapName)
+        print(i)
+        if i == 24:
+            x = 1
         meas[i].loadFile(file, PAN=PAN_DATA)
 
         if not np.isnan(meas[i].sigmaStd_Sm):
             meas[i].sigmaStdCalc_Sm = calStd(meas[i].T_K, lbl_uScm=meas[i].lbl_uScm)
         else:
             meas[i].sigmaStdCalc_Sm = 1e-8  # Default air conductivity
-        meas[i].FitCircuit(circType=circType, initial_guess=initial_guess, PRINT=True)
-        meas[i].Kcell_pm = meas[i].sigmaStdCalc_Sm * meas[i].Rcalc_ohm
+        meas[i].FitCircuit(circType=circType, initial_guess=initial_guess, PRINT=True,BASIN_HOPPING=False,MULTIPROC=True)
+        # meas[i].Kcell_pm = meas[i].sigmaStdCalc_Sm * meas[i].Rcalc_ohm
 
         if not PLOT_AIR and meas[i].comp == 'Air':
             gamryFiles.remove(file)
@@ -111,7 +123,7 @@ for d_ind,thisDate in enumerate(dates):
         # circuit.fit(meas[i].f_Hz,meas[i].Z_ohm)
         # meas[i].R0 = circuit.parameters_[0]
         # meas[i].Z_fit = circuit.predict(meas[i].f_Hz)
-        meas[i].sigma_Sm = meas[i].Kcell_pm/meas[i].Rcalc_ohm
+        # meas[i].sigma_Sm = meas[i].Kcell_pm/meas[i].Rcalc_ohm
 
 
     listStandards = np.array([cal.sigmaStd_Sm for cal in meas])
