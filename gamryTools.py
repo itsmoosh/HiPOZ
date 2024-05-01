@@ -2,6 +2,7 @@ from collections.abc import Iterable
 import os
 import numpy as np
 import scipy.interpolate as sci
+from scipy.optimize import basinhopping
 from datetime import datetime as dtime
 from glob import glob
 import logging
@@ -14,6 +15,9 @@ import schemdraw.elements as elm
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import Ppt2molal, Molal2ppt
 from PlanetProfile.Utilities.defineStructs import Constants
 from seafreeze.seafreeze import seafreeze
+import multiprocessing as mp
+from tqdm import tqdm
+
 
 # Assign logger
 log = logging.getLogger('HiPOZ')
@@ -30,8 +34,10 @@ wKCl_ppt = {23:    0.0116,
             15000: 8.759,
             80000: 52.168}  # Concentration of KCl standards as reported on the bottles
 pptUnits = ['ppt', 'gkg', 'g/kg']  # Available options for indicating pptm units
-molalUnits = ['molal', 'molkg', 'mol/kg']  # Available options for indicating molal units
-allUnits = pptUnits + molalUnits
+molalUnits = ['molal', 'molkg', 'mol/kg','mol_kg']  # Available options for indicating molal units
+SiemensUnits = ['us_cm','ms_cm']
+Saturated = ['Saturated']
+allUnits = pptUnits + molalUnits + SiemensUnits + Saturated
 
 Lleads = 2
 
@@ -86,7 +92,7 @@ def GetwFromDescrip(descrip, lbl_uScm=None):
     if np.sum(soluteCompare) > 1:
         raise ValueError(f'Multiple solutes found in descrip: "{descrip}".')
 
-    if lbl_uScm is not None:
+    if lbl_uScm is not None and not np.isnan(lbl_uScm):
         comp = 'KCl'
         w_ppt = wKCl_ppt[lbl_uScm]
         w_molal = Ppt2molal(w_ppt, m_gmol[comp])
@@ -99,15 +105,39 @@ def GetwFromDescrip(descrip, lbl_uScm=None):
             comp = list(soluteOptions)[np.where(soluteCompare)[0][0]]
             unitCompare = [units in descrip for units in allUnits]
             if not any(unitCompare):
-                raise ValueError(f'Units not found in descrip "{descrip}".')
-            unit = list(allUnits)[np.where(unitCompare)[0][0]]
+                # raise ValueError(f'Units not found in descrip "{descrip}".')
+                log.info(f'No units found in descrip: {descrip}')
+            # unit = list(allUnits)[np.where(unitCompare)[0][0]]
             try:
-                w = float(descrip.split(':')[-1].split(unit)[0])
+                unit = list(allUnits)[np.where(unitCompare)[0][0]]
+                # Strip whitespace characters like tabs and newlines
+                cleaned_string = descrip.strip()
+
+                # Split the string on underscore
+                parts = cleaned_string.split('_')
+
+                # Initialize a variable to hold the extracted number
+                number_as_float = None
+
+                # Iterate over the parts to extract digits
+                for part in parts:
+                    # Extract digits from the part
+                    if comp not in part:
+                        # Extract digits from the part
+                        numeric_part = ''.join([char for char in part if char.isdigit()])
+
+                        if numeric_part:  # Check if we found any digits
+                            number_as_float = float(numeric_part)
+                            break
+                w = number_as_float
             except ValueError:
                 raise ValueError('Concentration and units must appear at the beginning of descrip.')
             if unit in pptUnits:
                 w_ppt = w + 0
                 w_molal = Ppt2molal(w_ppt, Constants.m_gmol[comp])
+            elif unit in Saturated:
+                w_molal = 1000
+                w_ppt = 1000
             else:
                 w_molal = w + 0
                 w_ppt = Molal2ppt(w_molal, Constants.m_gmol[comp])
@@ -120,6 +150,7 @@ def GetwFromDescrip(descrip, lbl_uScm=None):
 class Solution: 
     def __init__(self, comp=None, cmapName='viridis'):
         self.comp = comp  # Solute composition
+        self.circStr = None
         self.w_ppt = None  # Solute mass concentration in g solute/kg solution
         self.w_molal = None  # Solute mass concentration in mol solute/kg solvent
         self.P_MPa = None  # Chamber pressure of measurement in MPa
@@ -219,11 +250,11 @@ class Solution:
             self.legLabel = self.comp
             self.lbl_uScm = np.nan
         else:
-            self.sigmaStd_Sm = self.GetSigmaFromDescrip(self.descrip)
+            self.sigmaStd_Sm = GetSigmaFromDescrip(self.descrip)
             self.legLabel = f'{self.sigmaStd_Sm:.4f}'
             self.lbl_uScm = np.round(self.sigmaStd_Sm*1e4)
             self.comp, self.w_ppt, self.w_molal = GetwFromDescrip(self.descrip, lbl_uScm=self.lbl_uScm)
->>>>>>> refs/remotes/origin/main
+
 
         self.color = self.cmap(np.log(self.lbl_uScm)/np.log(80000))
         self.fitColor = LightenColor(self.color, lightnessMult=0.4)
@@ -236,7 +267,7 @@ class Solution:
             self.Z_ohm = Zabs_ohm * np.exp(1j * np.deg2rad(Phi_ohm))
         return
 
-    def FitCircuit(self, circType=None, initial_guess=None, BASIN_HOPPING=False, Kest_pm=None, PRINT=True, circFile=None):
+    def FitCircuit(self, circType=None, initial_guess=None, BASIN_HOPPING=False,MULTIPROC=False, Kest_pm=None, PRINT=True, circFile=None):
         if Kest_pm is None:
             Kest_pm = 50
         if circType is None:
@@ -247,12 +278,13 @@ class Solution:
             self.circFile = circFile
         if circType == 'CPE':
             # Z_cell = R_0 + (R_0 + Z_CPE)/(1 + i*omega*C*(R_1 + Z_CPE)) -- Chin et al. (2018): https://doi.org/10.1063/1.5020076
-            initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 8e-7, 0.85, 146.2e-12, 50]
+            # initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 8e-7, 0.85, 146.2e-12, 50]
+            initial_guess = [np.real(self.Z_ohm[0]),0.02, 1e-5, 0.9, 1e-6]
             R0 = r'R_0'
             R1 = r'R_1'
             CPE1 = r'CPE_1'
             C1 = r'C_1'
-            circStr = f'p({R1}-{CPE1},{C1})-{R0}'
+            self.circStr = f'{R0}-p({R1}-{CPE1},{C1})'
             if PRINT:
                 with schemdraw.Drawing(file=self.circFile, show=False) as circ:
                     circ.config(unit=Lleads)
@@ -271,7 +303,7 @@ class Solution:
             initial_guess = [Kest_pm/self.sigmaStdCalc_Sm, 146.2e-12]
             R1 = r'R_1'
             C1 = r'C_1'
-            circStr = f'p({R1},{C1})'
+            self.circStr = f'p({R1},{C1})'
             if PRINT:
                 with schemdraw.Drawing(file=self.circFile, show=False) as circ:
                     circ.config(unit=Lleads)
@@ -311,15 +343,68 @@ class Solution:
             
         log.debug(f'Fitting {circType} circuit to input file {self.file}')
 
-        self.circuit = CustomCircuit(circStr, initial_guess=initial_guess)
-        self.circuit.fit(self.f_Hz, self.Z_ohm, global_opt=BASIN_HOPPING)
+        # Perform multiple fits with random initial guesses
+        if BASIN_HOPPING:
+            n_trials = 5
+            results = []
+            bounds = [(0.01, 5), (1e-4, 1), (1e-6, 1), (0.8, 1), (1e-7, 1e-5)]  # CPE
+            if MULTIPROC:
+                log.info(f"Starting trials in multiprocessing mode with {mp.cpu_count()} cores")
+                with mp.Pool(processes=mp.cpu_count()) as pool:
+                    args = [(bounds) for _ in range(n_trials)]
+                    for result in tqdm(pool.imap(self.optimize_circuit, args), total=n_trials):
+                        results.append(result)
+            else:
+                for n in tqdm(range(n_trials), desc="Optimizing"):
+                    log.info(f"Starting trial {n+1}")
+                    result = self.optimize_circuit(bounds)
+                    results.append(result)
+            # Find the best result based on lowest cost
+            best_result = min(results, key=lambda x: x.fun)
+
+        # Modify the optimizer settings
+        minimizer_kwargs = {
+            "method": 'L-BFGS-B',
+            "bounds": [(1e-16, 5), (1e-16, 1), (1e-16, 1), (1e-16, 1), (1e-16, 1e-4)],
+            "options": {'disp': True}  # Display convergence messages
+        }
+        self.circuit = CustomCircuit(self.circStr, initial_guess=initial_guess)
+        self.circuit.fit(self.f_Hz, self.Z_ohm)
         self.Zfit_ohm = self.circuit.predict(self.f_Hz)
         self.Rcalc_ohm = self.circuit.parameters_[0]
         self.Runc_ohm = self.circuit.conf_[0]
         log.debug(f'{self.circuit}' +
                   f'Fractional uncertainty in R: {self.Runc_ohm/self.Rcalc_ohm*100:.2f}%')
+        return
 
-        return 
+    def optimize_circuit(self,bounds):
+        try:
+            initial_guess = [np.random.uniform(low, high) for low, high in bounds]
+            result = basinhopping(self.create_and_fit_circuit, initial_guess, niter=100, stepsize=0.01,
+                                  minimizer_kwargs={"method": "BFGS"})
+            return result
+        except Exception as e:
+            print("Error in optimize_circuit:", str(e))
+            return None  # Explicitly return None if there is an error
+
+    # Setup basin hopping
+    def create_and_fit_circuit(self,bounds):
+        try:
+            for i, (low, high) in enumerate(bounds):
+                params[i] = np.clip(params[i], low, high)
+
+            self.circuit = CustomCircuit(self.circStr, initial_guess=params)
+            self.circuit.fit(self.f_Hz, self.Z_ohm)
+
+            # Calculate the residuals (difference between observed and modeled impedance)
+            Z_fit = self.circuit.predict(self.f_Hz)
+            residuals = self.Z_ohm - Z_fit
+            # Calculate sum of squared errors (SSE)
+            sse = np.sum(np.abs(residuals)**2)
+            return sse  # Return SSE as the cost
+        except Exception as e:
+            print("Error during fitting:", str(e))
+            return float('inf')
 
     def Recipe(self, w, units='ppt', vol_mL=500, TH2O_C=25):
         """
