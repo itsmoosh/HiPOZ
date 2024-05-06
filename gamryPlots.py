@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+import matplotlib.dates as mdates
 import logging
 from gamryTools import ResistorData, Solution
 
@@ -256,6 +257,73 @@ def PlotZfit(sols, figSize, xtn, outFigName=None, LEG_PAIRS=True):
 
     return
 
+def addPT(ax,x,P,T):
+    ax.plot(x, T, '-r', label='Temperature')
+    # ax.plot(x, P, '-g', label='Pressure')
+    # ax.set_ylabel('Temperature (°C) / Pressure (MPa)', color='red')
+    ax.set_ylabel('Temperature (°C)', color='red')
+    ax.tick_params(axis='y', labelcolor='red')
+
+def PlotTimeseries(timeseries, figSize=None, outFigName=None, xtn=None, Figure=None, interactive=False):
+
+    # Create a figure with subplots
+    if Figure is None:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(26, 14), sharex=True)
+    else:
+        fig = Figure
+        ax1 = fig.add_subplot(211) # impedance values with errorbars
+        ax2 = fig.add_subplot(212) # bottom plot for uncertainty
+
+    # Plot impedance with uncertainties
+    # Plot each data point with specific marker and color
+    for ts, imp, unc, color, marker in zip(timeseries.timestamps, timeseries.impedance_values, timeseries.uncertainties, timeseries.colors, timeseries.markers):
+        plot_element, caplines, barlinecols = ax1.errorbar(ts, imp, yerr=unc, fmt=marker, color=color, capsize=5)
+        if interactive:
+            plot_element.set_picker(5)  # 5 points tolerance
+
+    # ax1.errorbar(timestamps, impedance_values, yerr=uncertainties, fmt='o', capsize=5, label='Impedance with Uncertainty')
+    ax1.set_ylabel('Impedance (Ohm)')
+    ax1.set_title('Impedance Measurement Over Time')
+    # ax1.legend()
+    ax1.grid(True)
+
+
+    # Plot percent uncertainties
+    # Plot each data point with specific marker and color
+    for ts, imp, unc, color, marker in zip(timeseries.timestamps, timeseries.impedance_values, timeseries.percent_uncertainties, timeseries.colors, timeseries.markers):
+        ax2.plot(ts, imp, marker=marker, color=color)
+    # ax2.plot(timestamps, percent_uncertainties, 'o', label='Percent Uncertainty')
+    ax2.set_xlabel('Time',labelpad=-20)
+    ax2.set_ylabel('Percent Uncertainty (%)')
+    ax2.set_title('Percent Uncertainty Over Time')
+    # ax2.legend()
+    ax2.grid(True)
+
+    # ax3 = ax1.twinx()
+    # addPT(ax3,timestamps,Ps,Ts)
+    # ax4 = ax2.twinx()
+    # addPT(ax4,timestamps,Ps,Ts)
+    # Adjust subplot parameters manually if necessary
+
+    # Adjust layout and display
+    # Rotate and align x-axis labels
+    # plt.setp(ax1.get_xticklabels(), rotation=45, ha="right")
+    # plt.setp(ax2.get_xticklabels(), rotation=45, ha="right")
+    # plt.tight_layout()  # Adjust layout to make room for label rotations
+    # plt.subplots_adjust(bottom=0.2,left=0.2,right=0.2,top=0.2)  # Adjust margins if necessary
+    plt.subplots_adjust(bottom=0.2, top=0.8, left=0.1)  # You can tweak these values
+
+    for ax in ax1, ax2:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m %H:%M'))
+        plt.gcf().autofmt_xdate()  # Rotate date labels to avoid overlap
+
+    if interactive:
+        return fig, ax1, ax2
+    else:
+        plt.show()
+
+
+
 
 def PlotSigma(allMeas, figSize, outFigName, xtn):
     colorstr = 'gbryk'
@@ -297,7 +365,7 @@ def PlotSigma(allMeas, figSize, outFigName, xtn):
 
     # ax.set_yscale('log')
     plt.show()
-    plt.tight_layout()
+    # plt.tight_layout()
     outfName = f'{outFigName}CondvsTP.{xtn}'
     fig.savefig(outfName, format=xtn, dpi=500)
     print(f'Cond vs T plot saved to file: {outfName}')
