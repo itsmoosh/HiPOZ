@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 import scipy.interpolate as sci
 from scipy.optimize import basinhopping
 from datetime import datetime as dtime
@@ -17,6 +18,7 @@ from PlanetProfile.Utilities.defineStructs import Constants
 from seafreeze.seafreeze import seafreeze
 import multiprocessing as mp
 from tqdm import tqdm
+from bidict import bidict
 
 
 # Assign logger
@@ -60,7 +62,6 @@ def LightenColor(color, lightnessMult=0.5):
         c = color
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], 1 - lightnessMult * (1 - c[1]), c[2])
-
 
 def GetSigmaFromDescrip(descrip):
     """
@@ -138,6 +139,14 @@ def GetwFromDescrip(descrip, lbl_uScm=None):
             elif unit in Saturated:
                 w_molal = 1000
                 w_ppt = 1000
+            elif unit in SiemensUnits:
+                if unit is 'ms_cm':
+                    w *= 1000
+                try:
+                    w_ppt = wKCl_ppt[w]
+                except KeyError:
+                    print(f"No matching key for w={w} found in wKCl_ppt")
+                w_molal = Ppt2molal(w_ppt, Constants.m_gmol[comp])
             else:
                 w_molal = w + 0
                 w_ppt = Molal2ppt(w_molal, Constants.m_gmol[comp])
@@ -493,6 +502,7 @@ class Solution:
         Deltaw_ppt = float(f'{Deltaw_ppt:.2e}')  # Truncate to 2 sig figs in precision
 
         return wMeas_ppt, Deltaw_ppt, wMeas_molal, Deltaw_molal
+
 class ResistorData:
     def __init__(self, comp=None, cmapName='viridis'):
 
@@ -712,4 +722,92 @@ class CalStdFit:
             sigma_Sm = float(self.sigmaCalc_Sm[lbl_uScm](T_K))
         return sigma_Sm
 
+class TimeSeries:
+    def __init__(self,allMeas=None):
+        self.allMeas = allMeas
+        self.timestamps = []
+        self.impedance_values = []
+        self.filenames = []
+        self.uncertainties = []
+        self.percent_uncertainties = []
+        self.colors = []
+        self.markers = []
+        self.Ts = []
+        self.Ps = []
+        self.ws_ppt = []
+        self.calItems = []
+        self.measItems = []
+    def organizeData(self):
+        for data in self.allMeas:
+            for entry in data:
+                timestamp = entry.time  # Already a datetime.datetime object, no conversion needed
+                impedance = entry.Rcalc_ohm  # Use the correct key for impedance
+                uncertainty = entry.Runc_ohm  # Use the correct key for uncertainty
+                filename = entry.file
+                T = entry.T_K
+                P = entry.P_MPa
+                w_ppt = entry.w_ppt
 
+                self.timestamps.append(timestamp)
+                self.impedance_values.append(impedance)
+                self.uncertainties.append(uncertainty)
+                self.Ts.append(T)
+                self.Ps.append(P)
+                self.ws_ppt.append(w_ppt)
+                self.filenames.append(filename)
+
+                # Check if the measurement is for KCl or NaCl
+                if 'KCl' in filename:
+                    self.colors.append('red')  # Red color for KCl
+                    self.markers.append('*')  # Star marker for KCl
+                else:
+                    self.colors.append('blue')  # Blue color for NaCl
+                    self.markers.append('o')  # Circle marker for NaCl
+
+        # Convert lists to arrays for plotting
+        self.timestamps = np.array(self.timestamps)
+        self.impedance_values = np.array(self.impedance_values)
+        self.uncertainties = np.array(self.uncertainties)
+
+        # Calculate percent uncertainties
+        self.percent_uncertainties = (np.array(self.uncertainties) / np.array(self.impedance_values)) * 100
+
+        # Sorting the data by timestamps
+        sorted_indices = np.argsort(self.timestamps)
+        self.timestamps = np.array(self.timestamps)[sorted_indices]
+        self.impedance_values = np.array(self.impedance_values)[sorted_indices]
+        self.filenames = np.array(self.filenames)[sorted_indices]
+        self.uncertainties = np.array(self.uncertainties)[sorted_indices]
+        self.percent_uncertainties = self.percent_uncertainties[sorted_indices]
+        self.colors = np.array(self.colors)[sorted_indices]
+        self.markers = np.array(self.markers)[sorted_indices]
+        self.Ts = np.array(self.Ts)[sorted_indices]
+        self.Ps = np.array(self.Ps)[sorted_indices]
+        self.ws_ppt = np.array(self.ws_ppt)[sorted_indices]
+
+        calItems = []
+        measItems = []
+        comp = []
+        conductivities_Sm = []
+        conductivities_unc_pct = []
+        self.ws_ppt[self.ws_ppt==None] = 0
+        bid = bidict(wKCl_ppt)
+        for filename, timestamp, T, P, w_ppt in zip(self.filenames, self.timestamps, self.Ts, self.Ps, self.ws_ppt):
+            if 'KCl' in filename:
+                calItems.append(f"KCl: {timestamp}; {T} K; {int(w_ppt)} ppt")
+                comp.append(f"KCl")
+                if w_ppt is not 52.168:
+                    coeff = 1e-6
+                else: coeff = 1e-3
+                conductivities_Sm.append(coeff*bid.inverse[w_ppt])
+                conductivities_unc_pct.append(0)
+            else:
+                measItems.append(f"NaCl: {timestamp}; {T} K; {int(w_ppt)} ppt")
+                comp.append(f"NaCl")
+                conductivities_Sm.append(None)
+                conductivities_unc_pct.append(None)
+        self.calItems = calItems
+        self.measItems = measItems
+        self.comp = comp
+        self.conductivities_Sm = conductivities_Sm
+        self.conductivities_unc_pct = conductivities_unc_pct
