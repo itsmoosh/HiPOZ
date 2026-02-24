@@ -1,0 +1,16 @@
+IMPEDANCE MEASUREMENT 
+10:49:36.840 AM 2026-02-19
+Chamber temperature (K): 295.79
+Chamber pressure (MPa): 0.81
+Description: 	1MNaCl
+Driving voltage (V): 0.01
+Start freq (Hz): 1E+6
+Stop freq (Hz): 1E+2
+# freq steps: 60
+Index #	Frequency (Hz)	Impedance (ohms)	Phase (degrees)
+0 	 1000078.125000 	 97660.359375 	 -93.985329 	
+1 	 857765.625000 	 121086.835937 	 -90.366722 	
+2 	 735703.125000 	 140928.562500 	 -93.233192 	
+3 	 630984.375000 	 159591.062500 	 -91.290604 	
+4 	 541171.875000 	 181449.640625 	 -90.087440 	
+5 	 464203.125000 	 216173.609375 	 -89.225861 	

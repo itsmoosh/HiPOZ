@@ -1,0 +1,15 @@
+IMPEDANCE MEASUREMENT 
+4:43:47.435 PM 2025-08-27
+Chamber temperature (K): 292.65
+Chamber pressure (MPa): 2.8
+Description: 	NaCl0p5m_outside_endclosureWS3_C4_Cell1
+Driving voltage (V): 0.01
+Start freq (Hz): 1E+6
+Stop freq (Hz): 1E+2
+# freq steps: 60
+Index #	Frequency (Hz)	Impedance (ohms)	Phase (degrees)
+0 	 1000078.125000 	 40468.253906 	 -93.044388 	
+1 	 857765.625000 	 46522.886719 	 -91.775352 	
+2 	 735703.125000 	 54567.550781 	 -91.414543 	
+3 	 630984.375000 	 63627.355469 	 -91.988731 	
+4 	 541171.875000 	 74414.671875 	 -90.801674 	

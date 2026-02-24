@@ -1,0 +1,15 @@
+IMPEDANCE MEASUREMENT 
+11:32:47.103 AM 2024-06-27
+Chamber temperature (K): 0
+Chamber pressure (MPa): 0
+Description: 	Default
+Driving voltage (V): 0.01
+Start freq (Hz): 1E+6
+Stop freq (Hz): 1E+2
+# freq steps: 60
+Index #	Frequency (Hz)	Impedance (ohms)	Phase (degrees)
+0 	 1000078.125000 	 198.931564 	 -0.087510 	
+1 	 857765.625000 	 199.065140 	 -0.084899 	
+2 	 735703.125000 	 199.108841 	 -0.112251 	
+3 	 630984.375000 	 199.137268 	 -0.145828 	
+4 	 541171.875000 	 199.251663 	 -0.145670 	
